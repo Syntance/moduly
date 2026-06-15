@@ -1,0 +1,72 @@
+---
+description: Release, deploy, monitoring, incident response, SLO, backup/DR — ładuj dla CI/CD, deployu, runbooków, monitoringu
+updated: 2026-05
+---
+
+## Pre-deploy checklist (per release)
+- [ ] `pnpm typecheck && pnpm lint && pnpm test && pnpm build` passing.
+- [ ] Visual regression (Chromatic / Playwright) + a11y (axe) passing.
+- [ ] **Lighthouse**: Performance ≥ 90, Accessibility = 100, Best Practices ≥ 95, SEO = 100 (na zmienionych stronach).
+- [ ] Bundle analyzer: brak regresji > 10%.
+- [ ] ENV variables ustawione w prod (nie tylko preview). Database migrations zastosowane (jeśli dotyczy).
+- [ ] Feature flag gating jeśli beta. Changeset + CHANGELOG. ADR jeśli nietrywialne. Rollback plan w PR description.
+
+## Deploy
+- **Preview** (per PR, Vercel auto) / **Staging** (merge do main) / **Prod** (git tag / manual promote). Zero downtime zawsze.
+- Preferowane okno dla ryzykownych deployów: pon–czw 10:00–15:00. Unikaj pt po 14:00 / weekendu / święta (brak ludzi do reakcji). Hotfix krytyczny — kiedykolwiek.
+
+## Post-deploy smoke test (5 min, incognito)
+- Home load < 2s. Nav → każda główna sekcja. Form submit. Checkout flow (jeśli sklep) do payment page.
+- Lighthouse mobile + desktop na home. Sentry → 0 nowych errorów w 10 min.
+
+## Monitoring — alert matrix
+- Error rate > 1% → Discord/Slack instant. 5xx spike (> 10 w 5 min) → PagerDuty/instant.
+- LCP p75 > 2.5s / INP p75 > 300ms → email + daily summary. DB pool > 80% → email. Deploy failure → Discord instant.
+
+## Rollback — kiedy i jak
+- **Kiedy**: LCP regresja > 500ms p75; error rate > 1% > 5 min; jakikolwiek 5xx spike; critical flow broken (checkout, signup, auth).
+- **Jak**: Vercel Deployments → previous → „Promote to Production" (~15s). NIGDY przez `git revert` + push (za wolno). Post-rollback: incident note + root cause w 24h.
+
+## On-call (pierwsze 15 min incydentu)
+1. Potwierdź w Sentry/PostHog scope (1 user / 10% / 100%).
+2. > 10% → rollback IMMEDIATELY. < 10% → feature flag off (jeśli flaga) lub rollback.
+3. Komunikacja: status page / Discord / klient (per severity). Post-mortem w 24h: timeline + root cause + prevention.
+
+## Incident severity matrix
+- **SEV1** (site/checkout down, data breach): response 15 min, rollback IMMEDIATELY.
+- **SEV2** (feature broken, perf regression > 30%): response 1h, fix w 24h.
+- **SEV3** (cosmetic, edge case): response 1 dzień, fix w sprincie. **SEV4** (nice-to-have): backlog.
+
+## SLO / SLA
+- **SLI**: LCP p75, INP p75, error rate, uptime %. **SLO**: 99.9% uptime, LCP p75 < 2.5s przez 95% czasu, error rate < 0.5%.
+- **SLA** kontraktowy tylko dla premium — nie overpromise w standardowej umowie. Report miesięczny do klienta.
+
+## Progressive delivery
+- **Feature flags** (PostHog / Statsig): risky feature ZA FLAGĄ przy first deploy. Rollout 1% → 10% → 50% → 100% przez tydzień. Kill switch = OFF bez deployu (rollback 30s).
+- Vercel **Skew Protection** — stare sesje dostają stary kod przez 24h. NEVER instant 100% dla: DB schema change, payment/checkout/auth flow.
+
+## Load testing (k6, przed major / Black Friday)
+- Scenariusze: 100 concurrent home / 5 min, 50 PDP / 5 min, 20 checkout (Stripe test mode). Pass: p95 < 2s, error rate < 0.1%, zero 5xx.
+
+## Chaos / resilience (kwartalnie, na staging)
+- Ubij staging DB → sprawdź graceful error + recovery. DevTools throttle 2s na API → loaders działają. 3rd party fail (zła URL bramki) → checkout „chwilowo niedostępne".
+
+## Runbook
+- `docs/runbook/*.md` per incydent: payment-down, db-connection, cdn-404, build-failure, certificate-expired, data-breach. Każdy: symptomy / diagnoza / fix / prevention.
+
+## Secrets rotation
+- Kwartalnie wszystkie API keys. Immediate przy leak / odejściu pracownika / podejrzanej aktywności. Doppler / Vercel ENV audit log co miesiąc.
+
+## Backup strategy
+- **DB** (Railway/Neon): daily automated + retention 30 dni + weekly full export do S3/R2 (niezależny cloud).
+- **Assets** (Cloudinary/R2): replikacja na drugi region co 24h. **Code**: GitHub + mirror raz w miesiącu.
+- **Test restore co kwartał** (staging rebuild z backupu). „Nieprzetestowany backup = brak backupu".
+
+## Disaster recovery
+- **Vercel pada**: runbook migracji na Cloudflare Pages/Netlify, DNS TTL ≤ 5 min, RTO 2h. **DB host pada**: failover Neon, RTO 30 min.
+- **Domain/SSL expiry**: auto-renewal + alerty 6m/3m/1m (domena), 14 dni (custom cert). **Account compromise**: 2FA obowiązkowe, hardware keys dla prod, recovery codes w sejfie.
+- **Data loss**: komunikacja w 72h (GDPR), UODO notification (patrz 56-legal).
+
+## Business continuity
+- **Status page**: `/status` (SSG z Uptime Robot/BetterStack). **Escalation**: single point of contact + numer telefonu w umowie przy P1.
+- **Legal snapshot**: terms / privacy / regulamin wersjonowane w repo z datą.

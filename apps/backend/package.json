@@ -1,0 +1,52 @@
+{
+  "name": "@moduly/backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Moduly — MedusaJS v2 Backend (starter-sklep)",
+  "scripts": {
+    "dev": "medusa develop",
+    "start": "medusa start -H 0.0.0.0",
+    "build": "medusa build",
+    "setup-payment": "medusa exec ./src/scripts/ensure-moduly-payment.ts",
+    "test": "vitest run --passWithNoTests",
+    "db:migrate": "medusa db:migrate",
+    "admin:create-local": "medusa user -e admin@local.test -p admin",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
+    "clean": "rm -rf dist .turbo .medusa"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1058.0",
+    "@medusajs/admin-sdk": "2.13.4",
+    "@medusajs/cache-redis": "2.13.4",
+    "@medusajs/cli": "2.13.4",
+    "@medusajs/dashboard": "2.13.4",
+    "@medusajs/draft-order": "2.13.4",
+    "@medusajs/admin-shared": "2.13.4",
+    "@medusajs/event-bus-redis": "2.13.4",
+    "@medusajs/file-local": "2.13.4",
+    "@medusajs/framework": "2.13.4",
+    "@medusajs/icons": "2.13.4",
+    "@medusajs/locking-redis": "2.13.4",
+    "@medusajs/medusa": "2.13.4",
+    "@medusajs/ui": "4.1.5",
+    "@medusajs/workflow-engine-redis": "2.13.4",
+    "@sentry/node": "^10.49.0",
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
+    "@upstash/ratelimit": "^2.0.0",
+    "@upstash/redis": "^1.28.0",
+    "ioredis": "^5.10.1",
+    "jose": "^6.0.11",
+    "meilisearch": "^0.56.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "resend": "^6.12.2"
+  },
+  "devDependencies": {
+    "@medusajs/types": "2.13.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

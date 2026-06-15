@@ -1,0 +1,59 @@
+---
+description: Ecom design — layout sklepu, PDP, cart drawer, product grid
+globs:
+  - "apps/storefront/src/components/product/**"
+  - "apps/storefront/src/components/cart/**"
+  - "apps/storefront/src/app/(shop)/**"
+---
+
+## Cart drawer (NIE modal)
+- Slide-in z prawej, 400–480px wide, full-height.
+- Sticky footer: subtotal + „Przejdź do kasy" CTA + „Kontynuuj zakupy" link.
+- Body: items (image 80×80, title, variant, quantity stepper, price, X remove).
+- Empty state: ilustracja + „Twój koszyk jest pusty" + „Zobacz produkty" CTA.
+- A11y: `role="dialog"`, `aria-modal="true"`, focus trap, Escape zamyka, focus na close po open.
+- Motion: 300ms `cubic-bezier(0.22, 1, 0.36, 1)`. Backdrop fade 200ms.
+
+## PDP (Product Detail Page)
+- **Desktop**: left 60% gallery sticky, right 40% info (scroll).
+- **Mobile**: gallery top full-width, info below, sticky „Dodaj do koszyka" bar bottom.
+- **Gallery**:
+  - Main + thumbnail strip (left desktop, bottom mobile).
+  - Zoom on hover (desktop), pinch-zoom (mobile via @use-gesture).
+  - Max 8 zdjęć, pierwsze 3 eager, reszta lazy.
+  - 360° / video: dodatkowy thumbnail z ikoną odróżniającą.
+- **Info panel**: breadcrumbs → H1 → rating → price (stara + nowa jeśli sale) → variants → quantity → CTA.
+- „Dodaj do koszyka" primary, full width, sticky bottom bar on mobile scroll.
+- Accordion poniżej: Specyfikacja, Skład, Dostawa i zwroty, Q&A.
+
+## Product grid (listing)
+- Breakpoints: mobile 2 col, tablet 3, desktop 4. Max 5 tylko dla lookbooku.
+- **Card**:
+  - Image ratio locked (`aspect-ratio: 4/5` fashion, 1/1 accessory, 3/4 general).
+  - Hover: crossfade do drugiego zdjęcia (jeśli jest), 400ms.
+  - Quick add: floating „+" on hover (desktop), widoczny stale (mobile).
+  - Info: title, variant count („3 kolory"), price.
+- **Filter sidebar** (desktop): sticky, scroll-independent.
+- **Filter drawer** (mobile): bottom sheet, full-height toggle.
+- Filtry w URL przez `nuqs` — share-friendly, refresh-safe.
+
+## Price display
+- `font-variant-numeric: tabular-nums` ZAWSZE na cenach (równanie kolumn).
+- `Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' })`.
+- **Sale**: stara cena `line-through` + muted. Nowa bold + akcent. Badge „-X%" w rogu.
+- **Ustawa omnibus**: przy obniżce pokazuj „Najniższa cena z 30 dni: X zł" (obowiązkowe w PL).
+- **Variant prices**: „od X zł" gdy najtańszy wariant niewybrany.
+- Integer grosze w logice, format tylko w UI (patrz `00-ecom-core`).
+
+## Checkout layout
+- **Desktop**: 60/40 split (form left, order summary sticky right).
+- **Mobile**: form full-width, order summary w expandable accordion na górze.
+- **Progress**: Adres → Dostawa → Płatność (NAZWY kroków, nie „Krok 2/3").
+- **Trust signals** przy CTA: SSL badge, logo P24/Stripe, „Zwrot 14 dni", „Dostawa 24h".
+- Auto-save form do localStorage co `onBlur` → restore on reload (abandonment prevention).
+
+## Zero-stock / sold-out states
+- Button disabled: „Wyprzedane" zamiast „Dodaj do koszyka".
+- „Powiadom mnie" button → email form → webhook `inventory.restocked` → mail.
+- Sold-out variant: greyed + strikethrough w selektorze.
+- Low stock: „Zostało 3 szt." poniżej CTA gdy `quantity < 5`.

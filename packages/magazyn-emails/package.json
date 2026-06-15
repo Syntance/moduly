@@ -1,0 +1,44 @@
+{
+  "name": "@moduly/magazyn-emails",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./page": "./src/page.tsx",
+    "./send-transactional": "./src/send-transactional.ts",
+    "./case-email": "./src/case-email.ts"
+  },
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@moduly/config": "workspace:*",
+    "@moduly/magazyn-core": "workspace:*",
+    "@moduly/types": "workspace:*",
+    "@moduly/ui": "workspace:*",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "lucide-react": "^0.511.0",
+    "sanitize-html": "^2.17.0",
+    "next": "^16.2.4",
+    "react": "^19.2.0",
+    "resend": "^6.12.2",
+    "zod": "^3.25.76"
+  },
+  "peerDependencies": {
+    "next": ">=15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "@types/sanitize-html": "^2.16.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

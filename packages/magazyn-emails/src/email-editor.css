@@ -1,0 +1,52 @@
+/* Próbka koloru — wewnętrzny kolor = zaokrąglony prostokąt dopasowany do ramki (nie koło). */
+.email-editor-color-swatch {
+	--color-swatch-inset: 6px;
+	--color-swatch-inner-radius: calc(var(--radius-lg) - var(--color-swatch-inset) - 1px);
+
+	appearance: none;
+	-webkit-appearance: none;
+	box-sizing: border-box;
+	flex-shrink: 0;
+	cursor: pointer;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-lg);
+	background-color: var(--background);
+	padding: var(--color-swatch-inset);
+	overflow: hidden;
+}
+
+.email-editor-color-swatch::-webkit-color-swatch-wrapper {
+	padding: 0;
+	border-radius: var(--color-swatch-inner-radius);
+}
+
+.email-editor-color-swatch::-webkit-color-swatch {
+	border: none;
+	border-radius: var(--color-swatch-inner-radius);
+}
+
+.email-editor-color-swatch::-moz-color-swatch {
+	border: none;
+	border-radius: var(--color-swatch-inner-radius);
+}
+
+.email-editor-color-swatch:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+}
+
+.rich-text-editor:empty::before {
+	content: attr(data-placeholder);
+	color: var(--muted-foreground);
+	pointer-events: none;
+}
+
+.rich-text-editor strong,
+.rich-text-editor b {
+	font-weight: 700;
+}
+
+.rich-text-editor em,
+.rich-text-editor i {
+	font-style: italic;
+}

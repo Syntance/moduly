@@ -1,0 +1,53 @@
+---
+description: Shipping — dostawcy, paczkomaty, webhooki statusu
+globs:
+  - "apps/backend/src/modules/shipping-*/**"
+  - "apps/storefront/src/components/checkout/ShippingStep.tsx"
+  - "apps/backend/src/workflows/fulfillment-*/**"
+---
+
+## Kontrakt providera
+Każdy provider = osobny Medusa fulfillment module dziedziczący `AbstractFulfillmentProvider`. Interface: `calculateRate(cart)`, `createLabel(order)`, `cancelLabel(tracking)`, `trackShipment(tracking)`.
+
+## InPost Paczkomaty (PL priorytet — 80% e-commerce)
+- SDK: `easypack-sdk` (oficjalny) + widget `InPost Geowidget`.
+- Flow:
+  1. User wybiera „InPost Paczkomat".
+  2. Render widget (iframe / React) — user klika paczkomat na mapie.
+  3. Zapisz `target_point` (np. `KRA01A`) w `shipping_address.metadata.inpost_point`.
+  4. `fulfillment.create` → `easypack.shipment.create({ target_point, ... })` → `tracking_number`.
+- ENV: `INPOST_API_KEY` (sandbox vs prod), `INPOST_ORGANIZATION_ID`.
+- Webhook `shipment.status` → update `fulfillment.status` + email do klienta.
+- Fallback gdy widget nie loaduje (Safari iOS bug): manualny input kodu paczkomatu + link do `inpost.pl/znajdz-paczkomat`.
+
+## DPD (kurier PL/EU)
+- SDK: `@dpd-pl/api-client` (nieoficjalny) lub własny (SOAP).
+- Standard shipping (pełny adres, bez widgetu).
+- Tracking: DPD API `parcelStatus` polling co 6h (brak webhook dla małych kont).
+
+## DHL Express (EU international)
+- SDK: `@dhl/express-mydhl` (oficjalny).
+- Tylko dla zamówień > 150 PLN poza PL (customs-friendly).
+- Obsługuje labele + pickup booking.
+
+## Shippo / EasyPost (aggregator)
+- Gdy klient chce multi-carrier bez zarządzania każdym osobno.
+- Droższe per paczkę (+2–5 PLN), ale jeden API dla wszystkiego.
+
+## MUST
+- Kalkulacja rate PRZED checkout submit: `calculateRate(cart)` w `delivery` step — user widzi cenę.
+- Label creation ASYNCHRONICZNIE po `order.placed` w subscriberze. Nigdy w handlerze checkoutu.
+- Tracking webhook → update `fulfillment.status` → email „Twoje zamówienie zostało wysłane".
+- Rate cache: response cachuj 10 min per `cart.total + address.postal_code` (InPost rate limit 100/min).
+- Fallback: provider pada → disable w UI + Slack alert. NIE pokazuj „zepsutej" opcji.
+
+## NEVER
+- Nie pokazuj „Skontaktuj się w sprawie dostawy" jako opcja — brak ceny = brak zakupu.
+- Nie trzymaj label PDF w DB — R2 / S3 z signed URL.
+- Nie wysyłaj label dla anulowanych orderów (`order.status !== 'canceled'` check).
+- Nie przesyłaj PII do providerów bez DPA — podpisz z InPost / DPD.
+
+## Bugi które łapie
+- InPost widget pada na Safari iOS → checkout abandon. Fallback manualny + retry widget po 2s.
+- DPD rate zmienia się o 15:00 (cennik dzienny) → cache stale → klient płaci mniej niż koszt. TTL 10 min + refresh na submit.
+- Label creation 500 → order paid ale bez listu → klient czeka. Retry 3× + manual flag `needs_label` w Admin UI.

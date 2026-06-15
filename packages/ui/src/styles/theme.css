@@ -1,0 +1,67 @@
+/**
+ * Tokeny motywu używane przez komponenty @moduly/ui (kolory, ring, radius).
+ * Dopasowane do brandingu Lumine Concept — #EEE8E0 · #AF7C61 · #725750
+ *
+ * Import w aplikacji konsumenckiej:
+ *   @import "@moduly/ui/theme.css";
+ */
+:root {
+	--background: oklch(1 0 0);
+	--foreground: #725750;
+
+	--card: oklch(1 0 0);
+	--card-foreground: #725750;
+
+	--muted: oklch(0.97 0.001 106.424);
+	--muted-foreground: #8f7a74;
+
+	--primary: #AF7C61;
+	--primary-foreground: #ffffff;
+
+	--border: oklch(0.923 0.003 48.717);
+	--input: oklch(0.923 0.003 48.717);
+	--ring: oklch(0.709 0.01 56.259);
+
+	--destructive: oklch(0.577 0.245 27.325);
+
+	--radius-lg: 0.625rem;
+	--radius-md: calc(var(--radius-lg) - 2px);
+	--radius: var(--radius-lg);
+}
+
+.dark {
+	--background: oklch(0.147 0.004 49.25);
+	--foreground: oklch(0.985 0.001 106.423);
+
+	--card: oklch(0.216 0.006 56.043);
+	--card-foreground: oklch(0.985 0.001 106.423);
+
+	--muted: oklch(0.268 0.007 34.298);
+	--muted-foreground: oklch(0.709 0.01 56.259);
+
+	--primary: oklch(0.923 0.003 48.717);
+	--primary-foreground: oklch(0.216 0.006 56.043);
+
+	--border: oklch(1 0 0 / 10%);
+	--input: oklch(1 0 0 / 15%);
+	--ring: oklch(0.553 0.013 58.071);
+
+	--destructive: oklch(0.704 0.191 22.216);
+}
+
+@theme inline {
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-destructive: var(--destructive);
+	--radius-lg: var(--radius-lg);
+	--radius-md: var(--radius-md);
+}

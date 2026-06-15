@@ -1,0 +1,37 @@
+{
+  "name": "@syntance/moduly",
+  "version": "0.1.0",
+  "description": "CLI do tworzenia projektów Moduly i dokładania modułów",
+  "type": "module",
+  "bin": {
+    "moduly": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo",
+    "prepublishOnly": "pnpm build"
+  },
+  "dependencies": {
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.29",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "moduly",
+    "nextjs",
+    "medusa",
+    "cms",
+    "cli"
+  ],
+  "license": "UNLICENSED"
+}

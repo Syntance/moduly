@@ -1,0 +1,35 @@
+{
+  "name": "@moduly/cms",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./parsers": "./src/parsers.ts",
+    "./metadata-keys": "./src/metadata-keys.ts",
+    "./metadata": "./src/metadata.ts",
+    "./defaults": "./src/defaults.ts",
+    "./revalidate": "./src/revalidate-content.ts",
+    "./media-gate": "./src/cms-media-gate.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo",
+    "sync-cms": "tsx scripts/sync-cms-to-static.ts"
+  },
+  "dependencies": {
+    "@moduly/data-store": "workspace:*",
+    "@moduly/types": "workspace:*",
+    "next": "^16.2.4",
+    "server-only": "^0.0.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.29",
+    "@types/react": "^19.1.8",
+    "react": "^19.1.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

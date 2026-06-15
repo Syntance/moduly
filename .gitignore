@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.next/
+.turbo/
+.medusa/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+!.env.example
+coverage/
+playwright-report/
+test-results/
+public/images/cms/
+**/static-cms-media-map.ts
+.DS_Store
+Thumbs.db

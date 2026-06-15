@@ -1,0 +1,76 @@
+---
+description: Panel „Magazyn" — autorski admin (Medusa Admin API + Next.js) jako przenośny moduł. Ładuj przy pracy w magazyn/** lub app/magazyn/**.
+globs:
+  - "**/magazyn/**"
+  - "**/app/magazyn/**"
+  - "**/middleware.ts"
+---
+
+# Panel „Magazyn" (autorski admin, moduł przenośny)
+
+Panel administracyjny wbudowany w storefront Next.js (NIE Medusa Admin UI). Zarządza
+produktami, zamówieniami, kategoriami, treściami (CMS), mailami i ustawieniami. Dane:
+Medusa (produkty/zamówienia przez Admin API) + `Store.metadata` (treści/SEO/maile). Auth:
+JWT Medusa Admin w cookie httpOnly. Pakiet wzorcowy: `Syntance/moduly`.
+
+## Złota zasada przenośności
+- **`magazyn.config.ts` to JEDYNY plik edytowany pod nowy sklep** (branding, `basePath`,
+  `auth.cookieName`, `modules`, model treści, dane firmy, motyw maili). BEZ sekretów.
+- `core/` kopiujesz ZAWSZE. Moduły (`modules/*`) wg flag `magazyn.config.modules`.
+- Import cross-cutting: alias `@magazyn/*`. Wewnątrz modułu: importy względne.
+- Pieniądze: grosze (integer) w logice, format tylko w UI (`Intl.NumberFormat`).
+
+## Architektura (kontrakt)
+- `core/medusa/client.ts`: `adminFetch` (token z sesji, rzuca `AdminUnauthorizedError`
+  na 401), `serviceAdminFetch` (konto serwisowe, odczyt bez sesji), `adminUpload`.
+- `core/auth/`: login email/Google, `requireAdminSession`, `allowlist`, `login-rate-limit`,
+  `session` (cookie httpOnly, `secure` w prod, `sameSite: lax`).
+- `core/audit/audit-log.ts`: `recordAudit(action, { target })` — audit trail mutacji.
+- `core/storage/`: `uploadCmsAssetFile`, `uploadProductFile`, `resolveCmsAssetUrl` (R2/CDN).
+- `middleware.ts`: tania bramka na krawędzi (obecność cookie na `/<basePath>/panel/**`).
+- `loadAdmin` / `requireAdminSession`: właściwa walidacja (ważność JWT + allowlist).
+
+## MUST (bezpieczeństwo)
+- **Middleware** na `/<basePath>/panel/**` (matcher = literał zsynchronizowany z `basePath`).
+- **Allowlist e-maili** egzekwowana w loginie ORAZ w `requireAdminSession`
+  (gdy pusta → brak ograniczenia, ale ustaw na prod).
+- Każda **Server Action mutująca**: walidacja `zod` na wejściu + mutacja przez `adminFetch`.
+  Akcje robiące operacje POZA `adminFetch` (upload do R2, wysyłka maila) MUSZĄ zacząć od
+  `await requireAdminSession()`.
+- **Sekrety server-only** (`core/env.ts`). Token admina wyłącznie w cookie httpOnly. Nigdy
+  `NEXT_PUBLIC_*` dla sekretu/tokenu.
+- Operacje **destrukcyjne**: `ConfirmDialog` (nie `window.confirm`) + `recordAudit(...)`.
+- **Rate-limit logowania** (Redis/Upstash, fail-open bez konfiguracji).
+- Redirect przy braku/utracie sesji → route czyści stale cookie i przekierowuje na ekran
+  logowania (bez 404 i bez pętli).
+
+## NEVER
+- Nie polegaj WYŁĄCZNIE na obecności cookie jako autoryzacji — to tylko bramka. Ważność
+  JWT + allowlist sprawdzasz server-side.
+- Nie przyjmuj tokenu z query (`?token=`) w OAuth callback (session fixation, wyciek).
+- Nie eksponuj endpointów wewnętrznych jako publiczne — server-to-server z sekretem.
+- Nie rób twardego `DELETE` bez `ConfirmDialog` + audytu.
+- Nie hardkoduj `basePath`/cookieName/sekretów poza `magazyn.config.ts` / ENV.
+
+## Server Actions — wzorzec
+```ts
+"use server";
+export async function saveXAction(input: unknown): Promise<ActionState> {
+  const parsed = schema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Błędne dane." };
+  try {
+    await requireAdminSession();           // gdy akcja działa poza adminFetch
+    await saveX(parsed.data);              // store → adminFetch
+    await recordAudit("x.save", { target: parsed.data.id });
+  } catch (e) { return handleError(e, "Nie udało się zapisać."); }
+  revalidatePath(PATH);
+  return { ok: true, error: null };
+}
+```
+
+## Roadmap (świadomie nie-MVP)
+- 2FA/MFA, pełny RBAC (viewer/editor/admin), soft-delete + kosz, zarządzanie sesjami,
+  audit log w dedykowanej tabeli (zamiast logów), IP allowlist.
+
+## Pre-merge
+`pnpm typecheck && pnpm lint && pnpm test`. Zmiany dotykające checkoutu/koszyka: `+ e2e`.

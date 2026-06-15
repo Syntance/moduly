@@ -1,0 +1,43 @@
+---
+description: Cart store (Zustand) — stan koszyka po stronie klienta
+globs:
+  - "apps/storefront/src/providers/CartProvider.tsx"
+  - "apps/storefront/src/stores/cart.ts"
+  - "apps/storefront/src/hooks/use-cart*.ts"
+  - "apps/storefront/src/components/cart/**"
+---
+
+## Kontrakt store'u
+Store MUSI mieć dokładnie: `cart: StoreCart | null`, `seqRef: number`, `isHydrated: boolean`, oraz `actions: addItem, updateItem, removeItem, refresh, reset`. Hook split: `useCart()` → state, `useCartActions()` → methods (nie re-renderuje konsumentów akcji).
+
+## MUST
+- `persist` z `partialize: (s) => cartId: s.cart?.id`. Persist TYLKO ID, NIGDY pełnego carta.
+- Każda akcja: bumpuje `seqRef` przed fetchem. Odrzuca response jeśli `seqRef` się zmienił (late response = stale).
+- Optimistic update PRZED fetchem. Po odpowiedzi: `setCart(server)` tylko gdy seq się zgadza.
+- Dedupe double-click: `Map<variantId, Promise>` — drugi click zwraca pierwszą obietnicę.
+- Hydration guard: `useCart()` zwraca `cart: null` przed `isHydrated`. NIGDY nie renderuj UI koszyka z persist cache przed `onRehydrateStorage`.
+
+## NEVER
+- Nie trzymaj `cart.items` w URL ani query params.
+- Nie wołaj `medusa.store.cart.retrieve(id)` w każdym mount — tylko przy hydration lub invalidation (webhook).
+- Nie modyfikuj `cart` przez mutowalne push — używaj immutable update.
+- Nie wołaj akcji carta z Server Componentu — cart to ZAWSZE client-side.
+- Nie trzymaj pełnego carta trwale — prawda jest w backendzie.
+
+## Bugi które łapie
+- Double-click „Dodaj" → 2 requesty → drugi wraca szybciej → ilość resetuje. Dedupe + seqRef ucina.
+- Otwarcie sklepu po 3 dniach, persist ma stary cart → fantomy produktów. Persist tylko ID = świeży cart z backendu.
+
+## Abandoned cart flow
+- Trigger: user dodał item → zamknął → minęło 1h / 24h / 3d.
+- Backend subscriber `cart.updated` (debounce 5 min) → zapisuje `last_activity` + `email` (jeśli user podał) w `cart.metadata`.
+- Cron co 15 min: query carts gdzie `last_activity > 1h && email && !abandoned_notified_1h` → wyślij email przez MailerLite/Klaviyo → set flag.
+- Email CTA: `https://sklep.pl/cart?restore=<cart_id>` (nie secret token — guest cart i tak nie ma PII poza emailem, który user sam podał).
+- GDPR: email tylko gdy user podał go świadomie w checkoucie. Nie scrapuj z analytics.
+- Conversion benchmark: 1h mail 20% recovery, 24h 12%, 3d 5%. Po 3d nie spamuj.
+
+## Cart merge (guest → logged-in)
+- User ma guest cart (cookie `cart_id`) → loguje się → backend ma też `customer.cart_id` (ostatni zapamiętany).
+- Merge: items z guest + items z customer → deduplikuj przez `variant_id` (sumuj quantities, cap = `inventory.available`).
+- Conflict: cena zmieniła się od poprzedniego zapisu → „Ceny zostały zaktualizowane, sprawdź koszyk" + highlight zmiany.
+- Implementation: `medusa.store.cart.transferCart({ cart_id: guest_id })` po `customer.login`.

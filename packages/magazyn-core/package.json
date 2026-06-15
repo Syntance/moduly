@@ -1,0 +1,37 @@
+{
+  "name": "@moduly/magazyn-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./config": "./src/configure.ts",
+    "./hooks/use-file-drop-zone": "./src/hooks/use-file-drop-zone.ts",
+    "./hooks/use-prevent-window-file-drop": "./src/hooks/use-prevent-window-file-drop.ts",
+    "./client": "./src/client.ts"
+  },
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.940.0",
+    "@moduly/auth-core": "workspace:*",
+    "@moduly/config": "workspace:*",
+    "@moduly/config": "workspace:*",
+    "@moduly/types": "workspace:*",
+    "@moduly/ui": "workspace:*",
+    "server-only": "^0.0.1",
+    "zod": "^3.25.76"
+  },
+  "peerDependencies": {
+    "next": ">=15.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "next": "^16.2.4",
+    "react": "^19.2.0",
+    "typescript": "^5.9.3"
+  }
+}

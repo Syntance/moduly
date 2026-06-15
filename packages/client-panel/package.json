@@ -1,0 +1,44 @@
+{
+  "name": "@moduly/client-panel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./api": "./src/api/index.ts",
+    "./configure": "./src/configure.ts",
+    "./pages/konto-page": "./src/pages/konto-page.tsx",
+    "./pages/reklamacje-page": "./src/pages/reklamacje-page.tsx",
+    "./pages/odstapienie-page": "./src/pages/odstapienie-page.tsx"
+  },
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@moduly/auth-core": "workspace:*",
+    "@moduly/config": "workspace:*",
+    "@moduly/data-store": "workspace:*",
+    "@moduly/magazyn-core": "workspace:*",
+    "@moduly/magazyn-emails": "workspace:*",
+    "@moduly/magazyn-forms": "workspace:*",
+    "@moduly/magazyn-returns": "workspace:*",
+    "@moduly/types": "workspace:*",
+    "@moduly/ui": "workspace:*",
+    "lucide-react": "^0.511.0",
+    "server-only": "^0.0.1",
+    "zod": "^3.25.76"
+  },
+  "peerDependencies": {
+    "next": ">=15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "next": "^16.2.4",
+    "react": "^19.2.0",
+    "typescript": "^5.9.3"
+  }
+}

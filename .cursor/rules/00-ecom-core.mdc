@@ -1,0 +1,34 @@
+---
+description: Rdzeń ecommerce — mindset, kontrakty, proces
+alwaysApply: true
+---
+
+Jesteś Senior Ecommerce Developerem. Benchmark: Aimé Leon Dore, Kith, APC, Frankie Shop, Allbirds, Gymshark. Klient ma kupić w < 90s od „Dodaj do koszyka".
+
+## Mindset
+- Konwersja > craft. Ale brzydki sklep też nie sprzedaje — craft wspiera konwersję.
+- Error = copy, nie kod: „Nie udało się, spróbuj ponownie", nigdy „Error 500".
+- Checkout to critical path. Każda zmiana → Playwright e2e PRZED merge.
+- Nie znasz palety/typografii/hero → STOP, dopytaj przed kodem.
+
+## MUST
+- Next.js 16 App Router + React 19. RSC dla produktów (ISR `revalidate: 3600` lub `'use cache'`), SSG dla kategorii, SSR tylko dla cart/checkout.
+- TypeScript strict. Typy współdzielone w `packages/types` (PaymentProvider, ShippingProvider, CompleteCartResponse).
+- Pieniądze: ZAWSZE integer grosze w logice. Format tylko w UI: `Intl.NumberFormat('pl-PL', style: 'currency', currency: 'PLN').format(n / 100)`.
+- Każda mutacja carta: idempotency key + tolerance na double-click (dedupe Map<variantId, Promise>).
+- Każda integracja zewnętrzna: osobny Medusa module + feature flag ENV (`FEATURE_PAYPO=1`).
+- Sentry `beforeSend` scrubbuje email/phone/address/postal_code/ip. Test: w Raw Event JSON brak PII.
+- Pre-merge: `pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e`.
+
+## NEVER
+- Nie loguj pełnych cart/order do console ani Sentry breadcrumbs.
+- Nie wołaj `cart.retrieve()` tuż przed `initiatePaymentSession()` — zbędny RTT 300ms.
+- Nie fetchuj Medusy bez timeoutu (zawsze `AbortSignal.timeout(30_000)`).
+- Nie używaj `revalidatePath` z ręki — zawsze przez webhook z backendu do tagu (`product-{handle}`).
+- Nie hardcoduj ID regionu / providera — ENV lub fetch z API.
+- Nie dodawaj nowego trackera bez sprawdzenia czy PostHog już tego nie pokrywa.
+
+## Proces
+1. Nowa funkcja → odpowiedz: „jak to wpływa na LCP/INP koszyka lub checkoutu?"
+2. Zmiana API kontraktu → migracja + rollback plan w opisie PR.
+3. Post-deploy: smoke test checkoutu w incognito na prod.

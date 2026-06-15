@@ -1,0 +1,61 @@
+---
+description: CMS treści (moduł Magazyn) — Store.metadata jako źródło, read-modify-write, rewalidacja, SEO, sanityzacja linków. Ładuj przy pracy w lib/content/** lub magazyn/modules/content/**.
+globs:
+  - "**/lib/content/**"
+  - "**/magazyn/modules/content/**"
+  - "**/scripts/sync-cms-to-static.ts"
+---
+
+# CMS treści (bez zewnętrznego CMS)
+
+Treści witryny (hero, FAQ, opinie, trust bar, social, SEO per strona, maile) trzymane
+w **`Store.metadata`** Medusy. Edycja w panelu `magazyn`, odczyt przez RSC storefrontu
+(`lib/content`). Brak Sanity/Contentful. Model treści definiuje `magazyn.config.ts`
+(`content.pages`, `content.globalBlocks`).
+
+## Źródło prawdy (klucze `Store.metadata`)
+- `magazyn_site_settings` — ustawienia witryny + globalne SEO + trust bar + checkout callout + social + footer.
+- `magazyn_page_seo` — SEO per podstrona (mapa `pageId → SeoMeta`).
+- `magazyn_page_content` — treści per podstrona (hero, FAQ, opinie, galerie…).
+- `magazyn_global_content` — bloki globalne (logotypy, kafelki social…).
+- Produkty: `product.metadata` (`seo_*`, `product_faq`).
+
+## MUST
+- **Read-modify-write** przy zapisie do `Store.metadata`. Czytaj aktualny obiekt, nałóż
+  TYLKO edytowane pola, zapisz całość. Formularz SEO NIE może kasować innych pól
+  (announcementBar/trustBar/social/footer) i odwrotnie. `mergeStoreMetadata` chroni inne
+  KLUCZE; w obrębie jednego klucza dbasz o merge sam.
+- **Walidacja `zod`** na zapisie. Na odczycie parsuj defensywnie z fallbackiem do
+  `defaults` (jedno złe pole nie może wywalić całej strony).
+- **Sanityzacja linków**: pola href (hero CTA, announcement, kafelki) i URL-e zewnętrzne
+  przepuszczaj przez walidację — dozwolone `http(s)`, `/ścieżka`, `#kotwica`,
+  `mailto:`/`tel:`. Blokuj `javascript:`, `data:`, protocol-relative `//` (anty-XSS).
+- **Rewalidacja po zapisie**: `revalidateTag('magazyn-content')` + webhook rewalidacji.
+  W trybie static-snapshot dodatkowo deploy hook (publikacja ≈ redeploy — komunikuj w UI).
+- **Odczyt cache'owany**: jeden blob `Store.metadata` na render (`React.cache`, tag
+  `magazyn-content`). PDP: SEO/FAQ z już pobranego produktu (0 extra fetchy).
+- Renderowanie treści jako **React text nodes**. `dangerouslySetInnerHTML` tylko dla
+  JSON-LD (`JSON.stringify`) lub treści przepuszczonej przez sanitizer.
+
+## NEVER
+- Nie nadpisuj całego `magazyn_site_settings` payloadem z jednego formularza (utrata danych).
+- Nie renderuj surowego HTML z CMS bez sanityzacji.
+- Nie fetchuj `Store.metadata` per komponent — jeden cache'owany odczyt na render.
+- Nie zakładaj natychmiastowej publikacji w trybie static (snapshot z buildu) — bez deploy
+  hooka zmiany nie trafią live.
+- Nie duplikuj źródła treści (jedno źródło zapisu = `Store.metadata`; snapshot to tylko cache).
+
+## SEO przez CMS
+- Globalne: `siteSettings` (title/template/description/OG/weryfikacja) → root layout.
+- Per strona: `magazyn_page_seo` → `buildMetadata` (canonical, OG url/locale/siteName,
+  hreflang prep, robots). Structured data: Product/Offer (PDP), FAQPage, BreadcrumbList,
+  Organization/WebSite, LocalBusiness (`/kontakt`).
+
+## Wydajność
+- Prod: snapshot CMS w `prebuild` (`sync-cms-to-static.ts`) → zero fetchy CMS w runtime.
+- ISR + tagi zamiast krótkich TTL; po zmianie produktu webhook rewaliduje też
+  `product-config-{id}` (gdy konfigurator).
+
+## Roadmap (gdy potrzebne)
+- Wersjonowanie + draft/preview/publish, harmonogram publikacji, media library, i18n
+  per-locale, optimistic-locking (ETag) na `Store.metadata`.

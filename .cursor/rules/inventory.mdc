@@ -1,0 +1,47 @@
+---
+description: Inventory — stock, reservations, race conditions
+globs:
+  - "apps/backend/src/modules/inventory-*/**"
+  - "apps/backend/src/workflows/inventory-*/**"
+  - "apps/backend/src/subscribers/stock-*.ts"
+---
+
+## Medusa v2 Inventory Module
+- Używaj wbudowanego `InventoryService` + `ReservationService`. Nie custom count.
+- **Reservation** = soft hold na stock, TTL 15 min (checkout window). Po `order.placed` → permanent decrement. Po timeout → release.
+- **Stock location**: jedno warehouse default. Multi-location tylko gdy klient ma kilka magazynów.
+
+## Flow reservation
+1. `cart.addItem(variant, 2)` → `reservationService.create({ variant, quantity: 2, location, ttl: 15m })`.
+2. Jeśli `available < 2` → error `INSUFFICIENT_INVENTORY` → UI: „Dostępne tylko X szt.".
+3. User w checkout → reservation żyje.
+4. `order.placed` → reservation → permanent decrement.
+5. Cron co 5 min: expire reservations > 15 min → release stock.
+
+## Race conditions
+- **Dwóch userów ostatnia sztuka**:
+  - Bez reservation: obaj dodają, obaj płacą, ktoś dostaje 0. Katastrofa + chargeback.
+  - Z reservation: pierwszy → hold. Drugi → `available = 0` → error. Clean.
+- DB constraint `CHECK (reserved + sold <= total)` + transaction isolation `SERIALIZABLE` dla `createReservation`.
+
+## MUST
+- PDP: live stock gdy `quantity < 5` („Zostało 3 szt."). Powyżej — nie pokazuj (FOMO tanio wygląda).
+- Dodaj do koszyka → sprawdź reservation możliwość przed UI update (optimistic OK, rollback on error).
+- Email „Back in stock" dla subscribed users przy webhook `inventory.restocked`.
+- Admin dashboard: low-stock alert dla variantu gdzie `available < 10` + restock suggestion.
+
+## NEVER
+- Nie trzymaj stock w Redis bez invalidation → stale = oversell.
+- Nie pozwalaj na ujemne stock (DB constraint `quantity >= 0`).
+- Nie cachuj `available = total - reserved` — zawsze live query (< 10ms z indexem).
+- Nie usuwaj reservation bezpośrednio — używaj `reservationService.release()` (audit trail).
+
+## Multi-warehouse (opcjonalne)
+- Stock per `StockLocation`. Globalne: `sum(location.available)`.
+- Fulfillment: choose location bliżej klienta (cost + delivery time).
+- Split order: jeden order, dwa fulfillments gdy item z location A + item z B.
+
+## Bugi które łapie
+- Flash sale → 1000 userów na 50 szt. → bez reservation sprzeda 300. Reservation blokuje na poziomie DB.
+- User dodał, wrócił po 3 dniach → stock wyprzedany. Cron expire + email „Produkt niedostępny, podobne: [...]".
+- Stock decrement przy `payment.captured` (nie `order.placed`) → w okienku płatności ktoś inny kupuje → oversell. Reservation od dodania do koszyka eliminuje.

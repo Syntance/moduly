@@ -1,0 +1,76 @@
+---
+description: Płatności — moduły, webhooki, maszyna stanów, idempotency
+globs:
+  - "apps/backend/src/modules/payment-*/**"
+  - "apps/backend/src/api/webhooks/**"
+  - "apps/backend/src/workflows/payment-*/**"
+---
+
+## Kontrakt modułu
+Każdy provider = osobny Medusa module dziedziczący `AbstractPaymentProvider`. Folder: `src/modules/payment-<name>/`.
+
+## MUST
+- Weryfikacja podpisu webhooka PRZED JAKĄKOLWIEK logiką (return 401 early). P24: `sign = md5(sessionId|orderId|amount|currency|crc)`. Stripe: `stripe.webhooks.constructEvent`.
+- Idempotent webhooki: tabela `webhook_events (event_id PK, provider, processed_at)` + `INSERT ON CONFLICT DO NOTHING`. Already-processed = 200 OK bez działania.
+- Pull status po redirect back: NIGDY nie ufaj query params z URL (`?status=success` można sfałszować). Wołaj `getPaymentStatus(data)`.
+- Maszyna stanów: `Pending → Authorized → Captured → [Refunded | PartiallyRefunded]` + `Pending → Failed/Cancelled`. Asercja `assertTransition(prev, next)` w każdej zmianie.
+- Cron `retryPendingPayments` co 15 min pulluje status providera jako fallback gdy webhook zginie.
+- Feature flag ENV (`FEATURE_PAYPO=1`). Brak flagi → provider nie zarejestrowany w `medusa-config.ts`.
+
+## NEVER
+- Nie używaj `fetch` do P24/PayPo inline w route handlerze — zawsze przez service providera.
+- Nie trzymaj `P24_CRC`, `STRIPE_SECRET_KEY` nigdzie poza Railway secrets + `.env` w `.gitignore`.
+- Nie wołaj `completeCart` z webhooka — webhook tylko aktualizuje payment session. `completeCart` woła storefront.
+- Nie rób refundów ze storefrontu. Tylko Admin UI / Admin API z IP allowlist.
+- Nie loguj `card_number`, `cvv`, `p24_token` nawet w dev. Pre-commit hook `git-secrets`.
+- Nie retryuj webhooka od siebie — provider zrobi retry. Non-2xx to sygnał „spróbuj za chwilę".
+
+## Bugi które łapie
+- Atakujący wysyła fake webhook `status=success` → order „opłacony" bez wpłaty. Signature check blokuje.
+- Provider retryuje webhook 3× → 3 ordery z jednej płatności. Idempotency table blokuje.
+- P24 gubi webhook → order wisi `pending` na wieczność. Cron pulluje status co 15 min.
+
+## 3DS2 / SCA (Strong Customer Authentication — PSD2 EU)
+- **Obowiązkowe** dla każdej płatności > 30 EUR w EU. Bank może wymagać dla każdej wartości.
+- **Stripe**: robi automatycznie. `PaymentIntent` z `confirm: true` → handle `status === 'requires_action'` → `stripe.confirmCardPayment(clientSecret)` → native challenge modal.
+- **P24**: redirect na P24 → tam challenge (SMS / app banku) → redirect back.
+- **PayPo**: built-in (user robi weryfikację przy rejestracji BNPL).
+
+## MUST (3DS2)
+- Provider deklaruje `supports3DS: boolean` w module config.
+- Maszyna stanów dodaje `RequiresAction`: `Pending → RequiresAction → [Authorized | Failed]`.
+- Timeout challenge: 10 min (user walczy z SMS banku). Po timeout → `Failed` + email „Spróbuj ponownie z inną kartą".
+- Test karta Stripe wymuszająca 3DS: `4000 0027 6000 3184`. W staging zawsze przetestuj ten flow.
+- Monitoring: `3ds_challenge_rate` — jeśli > 80% → coś źle (exemption flag `low-value` / `recurring` źle ustawiona).
+
+## Refund / chargeback
+- Refund ZAWSZE z Admin UI (Medusa Admin), NIGDY ze storefrontu.
+- Chargeback webhook (`charge.dispute.created` Stripe) → status `disputed` + Slack alert IMMEDIATELY.
+- Response window: 7 dni na evidence (shipping proof, komunikacja, order confirmation).
+- Prewencja: AVS + CVV check, 3DS2 wymuszenie dla high-risk (amount > 500 PLN, nowy klient, billing ≠ shipping country).
+
+## Bugi które łapie (3DS2)
+- Bank wymaga challenge → storefront nie obsługuje `requires_action` → user klika „Zapłać" 2×  → 2 płatności. Handle state explicite.
+- Test w dev: Stripe test mode `4000 0000 0000 3220` (3DS2 required) — jeśli flow pada, znajdź przed prod.
+
+## PCI DSS (SAQ A — redirect / iframe only)
+- SAQ A scope: karta NIE dotyka twojego serwera. Stripe Elements (iframe) + P24 / PayPo (redirect) = SAQ A.
+- Self-assessment questionnaire raz w roku, self-sign (brak formalnej certyfikacji dla SAQ A).
+- NEVER custom card input form — nawet „bezpieczny" wypada z SAQ A → full PCI DSS audit ($$$ + 3 miesiące).
+- Logi: ZAKAZ `card_number`, `cvv`, `p24_token` gdziekolwiek (Sentry, logs, breadcrumbs). Pre-commit `git-secrets` + Sentry `beforeSend` scrubber.
+
+## Fraud prevention
+- **Stripe Radar** — built-in fraud scoring (free w standard tier). Reguły:
+  - **Block**: score > 75, billing country ≠ shipping country, proxy / VPN detected, CVV fail.
+  - **Review**: score 50–75, nowy klient > 500 PLN, email domain < 30 dni, velocity anomaly.
+- **3DS2 wymuszenie** dla high-risk: amount > 500 PLN, nowy klient, billing ≠ shipping country.
+- **Velocity check**: > 3 zamówienia z jednego IP w 10 min → Slack alert + manual review queue.
+- **BIN country check**: karta z kraju w sankcjach (Russia, Belarus, Iran, NK) → automatic decline.
+
+## AML / KYC (high-value B2B)
+- Zamówienia > 15 000 EUR (próg AML PL) → dodatkowa weryfikacja:
+  - NIP check w **GUS API** (darmowe, PL).
+  - KRS check w **Ministerstwie Sprawiedliwości** (dla spółek kapitałowych).
+  - Sanctions screening: lista UE + US OFAC + UN.
+- Automation dla B2B heavy: **sumsub.com** / **onpay.io** (integracja gotowa, ~500 EUR / mies.).
+- Fail check → order status `needs_manual_review` + Slack alert + email do klienta „Weryfikacja w toku, max 24h".

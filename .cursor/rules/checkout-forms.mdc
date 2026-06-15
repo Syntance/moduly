@@ -1,0 +1,55 @@
+---
+description: Checkout — schemat Zod, RHF, step state, complete flow
+globs:
+  - "apps/storefront/src/app/(shop)/checkout/**"
+  - "apps/storefront/src/components/checkout/**"
+  - "apps/storefront/src/lib/validation/checkout*.ts"
+---
+
+## Kontrakt
+Jeden schemat Zod w `src/lib/validation/checkout.ts`, importowany po obu stronach (klient + API). NIGDY dwóch wersji.
+
+## MUST
+- `react-hook-form` + `zodResolver(checkoutSchema)`. `mode: 'onBlur'`, `reValidateMode: 'onChange'`.
+- Krok checkoutu w `nuqs` (`?step=address|delivery|payment`), NIE w `useState` — refresh nie gubi.
+- `await trigger(['shipping_address', 'email'])` przed przejściem do następnego kroku.
+- Submit: 1× `cart.update()` z pełnym payloadem → `addShippingMethod()` → `initiatePaymentSession()` → redirect providera LUB `completeCart()` inline (Stripe).
+- Walidacja PL: kod pocztowy `/^\d{2}-\d{3}$/`, telefon `libphonenumber-js`, NIP 10 cyfr z checksum.
+- Loading state: `isSubmitting` (RHF) + po 3s tekst „Przetwarzamy zamówienie, nie zamykaj okna".
+- Po sukcesie: `router.replace('/checkout/potwierdzenie?order_id=' + id)` + `cart.reset()`.
+
+## NEVER
+- Nie wymagaj konta. Guest checkout MUSI działać do końca.
+- Nie kopiuj `shipping_address` → `billing_address` jako default. `watch('billing_same')` + warunkowy render.
+- Nie rób `cart.update()` 3× osobno (email → address → phone). JEDEN update = atomowo.
+- Nie pokazuj błędów walidacji przed `onBlur` — frustruje usera.
+- Nie dodawaj captchy w checkoucie — zabija konwersję o 10-20%. Rate-limiting per IP wystarczy.
+- Nie używaj step-state jako `?step=2` — enum nazwany (address/delivery/payment) dla a11y i debugowania.
+
+## Bugi które łapie
+- 3 osobne updates → race w backendzie → address nadpisuje email. Jeden update = atomowo.
+- User odświeża na kroku 2 → traci dane. `nuqs` + RHF draft w localStorage = zachowane.
+- P24 webhook opóźniony → redirect na `/potwierdzenie` zanim order istnieje → 404. Polling fallback w route `/potwierdzenie` rozwiązuje.
+
+## Express checkout (Apple Pay / Google Pay / Link)
+- Stripe `<ExpressCheckoutElement>` na górze checkout page — WYŻEJ niż klasyczny form.
+- Obsługuje: Apple Pay (iOS/macOS Safari), Google Pay (Chrome Android), Link (Stripe saved methods).
+- Conversion lift: +15–25% mobile, +5–10% desktop (Stripe benchmark 2025).
+- MUST: HTTPS + domain verification w Stripe Dashboard (Apple Pay tego wymaga).
+- Flow: click → native sheet → `stripe.confirmPayment` → `completeCart` inline (bez redirectu).
+- Fallback: jeśli device nie supportuje → Element się nie renderuje (zero działania od nas).
+
+## Address autocomplete
+- **Google Places** (`@googlemaps/places`) — autosuggest ulic + miast + kodów pocztowych.
+- Alternatywa darmowa: **GUS REGON API** (PL-only, oficjalne, ale wolne +300ms).
+- Flow: input ulica → suggest dropdown → click → wypełnij `postal_code`, `city`, `province` auto.
+- A11y: `aria-autocomplete="list"`, `role="combobox"`, strzałki + Enter.
+- Rate limit: max 10 zapytań/s per IP, cache last 5 queries per session.
+
+## Discount / voucher codes
+- Input w kroku `delivery` (NIE `payment`) — user widzi kwotę przed wyborem metody płatności.
+- Apply: `medusa.store.cart.addPromotions({ promo_codes: [code] })`.
+- Walidacja: sprawdź `cart.discount_total > 0` przed „Zniżka zastosowana".
+- Error: „Kod nieprawidłowy lub wygasł" — NIGDY nie rozróżniaj czy kod istniał (security: brute-force).
+- Multi-code stacking: zależne od strategii (Medusa Admin konfiguruje).
+- Min order value: jeśli `cart.subtotal < promotion.min` → „Kod wymaga zamówienia od X zł".

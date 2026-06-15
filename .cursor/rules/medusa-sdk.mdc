@@ -1,0 +1,27 @@
+---
+description: Medusa SDK — singleton, proxy, timeouty, typed errors
+globs:
+  - "apps/storefront/src/lib/medusa/**"
+  - "apps/storefront/src/app/api/medusa/**"
+---
+
+## Kontrakt klienta
+`src/lib/medusa/client.ts` eksportuje JEDEN singleton. `new Medusa()` poza tym plikiem = błąd.
+
+## MUST
+- Client-side woła `/api/medusa/*` (proxy). NIGDY bezpośrednio `https://backend.railway.app`.
+- Server-side (RSC, route handlery) woła direct `MEDUSA_BACKEND_URL` + `MEDUSA_API_KEY` (nie publishable).
+- Proxy route: `preferredRegion = ['fra1']`, `AbortSignal.timeout(30_000)`, allowlist segmentów, 504 z user-friendly copy na timeout.
+- `cart.update()` z pełnym payloadem (email, shipping_address, billing_address) w JEDNYM requeście. Nie 3 osobne.
+- `relations` precyzyjnie. Dla listy produktów MAX `['variants', 'variants.prices']`. Nigdy `['*']`.
+
+## NEVER
+- Nie exportuj `publishableKey` do logów / console / Sentry.
+- Nie cachuj SDK w module (`let cache = ...`) — Next robi to przez `revalidateTag`.
+- Nie rób `retrieve()` → `update()` w sekwencji — `update()` zwraca zaktualizowany resource.
+- Nie fetchuj `/store/*` przez raw `fetch` — używaj SDK (typed).
+
+## Bugi które łapie
+- Cold start Railway 3s → fetch bez timeoutu wisi 30s → Vercel function timeout 500. Timeout + 504 = user-friendly.
+- `publishableKey` w client bundle → rate-limiting zniweczony. Proxy ukrywa.
+- 3 osobne `cart.update()` = 3× RTT = 900ms opóźnienia checkoutu. Jeden update = atomowo.

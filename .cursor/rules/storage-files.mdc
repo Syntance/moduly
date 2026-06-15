@@ -1,0 +1,67 @@
+---
+description: Przechowywanie i transfer plików w module magazyn — R2, CDN, upload, bezpieczeństwo. Ładuj przy pracy w core/storage/**, upload*, media-url, asset-url.
+globs:
+  - "**/magazyn/core/storage/**"
+  - "**/magazyn/core/medusa/media-url.ts"
+  - "**/product-upload/**"
+  - "**/asset-url.ts"
+---
+
+# Pliki i media (magazyn + storefront)
+
+Upload i odczyt URL-i mediów: **Cloudflare R2 (preferowane)** → fallback Medusa `/admin/uploads`
+→ opcjonalnie Vercel Blob (tylko pliki klienta). Odczyt przez publiczny CDN (`S3_FILE_URL`).
+
+## Prefiksy R2 (kontrakt)
+
+| Prefiks | Kto uploaduje | Max | Typy |
+| --- | --- | --- | --- |
+| `cms-uploads/` | Panel (CMS, produkty, maile) | 10 MB | JPG, PNG, WEBP, GIF, AVIF |
+| `customer-uploads/` | Klient (PDP/konfigurator) | 100 MB | + PDF, SVG, AI, EPS |
+
+Oddzielne prefiksy → lifecycle, retencja, audyt, brak mieszania PII klienta z assetami sklepu.
+
+## MUST
+
+- **Autoryzacja panelu**: każdy upload w Server Action zaczyna od `requireAdminSession()`.
+- **Walidacja**: `validateCmsUploadFile` / `validateProductUploadFile` przed zapisem (MIME allowlist + rozmiar).
+- **Sanityzacja klucza**: nazwa pliku → `[a-zA-Z0-9._-]`; klucz `{prefix}/{ts}-{rand}-{safeName}`.
+- **Timeout**: R2 15s / 120s (duże); fetch Medusa 30s; `AbortSignal.timeout` na wszystkich fetch.
+- **CDN**: zapisany URL z R2 to pełny `S3_FILE_URL/…`; Medusa `/static/` → `resolveMedusaMediaUrl` → CDN.
+- **Storefront public**: `/images/`, `/icons/` z `public/` — NIE prefiksuj backendem (`resolveCmsAssetUrl`).
+- **next/image**: zdalne R2/CDN → optymalizuj; SVG, localhost, `/static/` bez pliku w public → `unoptimized`.
+- **Sekrety**: `S3_*`, `BLOB_*` tylko server-side. Publiczny wyłącznie `S3_FILE_URL` / `NEXT_PUBLIC_S3_FILE_URL`.
+
+## Kolejność fallback (upload)
+
+**CMS / panel (`uploadCmsAssetFile`):**
+1. R2 `cms-uploads/` (gdy skonfigurowane `S3_*`)
+2. Medusa `/admin/uploads` (konto serwisowe `MEDUSA_ADMIN_*`)
+3. W akcji produktów: dodatkowy fallback `adminUpload` (sesja panelu) gdy brak konta serwisowego
+
+**Pliki klienta (`uploadProductFile`):**
+1. R2 `customer-uploads/`
+2. Vercel Blob (gdy `BLOB_READ_WRITE_TOKEN`)
+3. Medusa `/admin/uploads`
+
+## NEVER
+
+- Nie uploaduj do Medusa file-local na produkcji bez R2 — pliki są efemeryczne.
+- Nie akceptuj uploadu bez walidacji MIME (blokuj `application/octet-stream` bez rozszerzenia).
+- Nie zwracaj względnych URL-i R2 bez `S3_FILE_URL` — klient musi dostać pełny CDN URL.
+- Nie loguj pełnych URL-i z tokenami/query ani nazw plików klienta w Sentry breadcrumbs.
+- Nie używaj `adminUpload` (sesja) jako jedynej ścieżki CMS na prod — preferuj R2 + service account fallback.
+
+## Implementacja (pakiet wzorcowy)
+
+- `@magazyn/core/storage/upload.ts` — logika upload
+- `@magazyn/core/storage/asset-url.ts` — odczyt CMS
+- `@magazyn/core/medusa/media-url.ts` — CDN rewrite Medusa
+- Dokumentacja: `packages/magazyn/core/storage/README.md`
+
+## ENV (skrót)
+
+Storefront: `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET`, `S3_FILE_URL`,
+`MEDUSA_ADMIN_EMAIL`, `MEDUSA_ADMIN_PASSWORD`, opcjonalnie `BLOB_READ_WRITE_TOKEN`.
+
+Backend Medusa: ten sam bucket (`@medusajs/file-s3`) — spójność `/admin/uploads` z R2.

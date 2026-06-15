@@ -1,0 +1,84 @@
+---
+description: Post-order — subscribery, workflows, email/faktura/analytics
+globs:
+  - "apps/backend/src/subscribers/**"
+  - "apps/backend/src/workflows/**"
+  - "apps/backend/src/modules/notification/**"
+---
+
+## Kontrakt
+Jeden `order.placed` → N niezależnych subscriberów. Każdy: **idempotentny** (key = `order_id`), **izolowany** (error w jednym nie blokuje innych), **nieblokujący** (nie trzyma workflowu).
+
+Pipeline: `order.placed` → send-confirmation-email | create-invoice (Fakturownia) | notify-admin-slack (> X PLN) | track-meta-capi | mailerlite-upsert.
+
+## MUST
+- Każdy subscriber w osobnym pliku `src/subscribers/<nazwa>.ts` z exportem `config = event: 'order.placed'`.
+- Idempotency przez `order.metadata[subscriberKey + '_done'] === true`. Sprawdź PRZED robotą, set PO sukcesie.
+- Fakturownia: `POST /invoices.json` → zapisz `invoice_id` + `invoice_url` w `order.metadata`. Email leci z Medusy z załącznikiem PDF.
+- Meta CAPI: server-side `Purchase` z `event_id = order.id` (deduplikacja z pixelem client-side).
+- Retry Medusa: 3× backoff (2s → 10s → 60s). Po 4. próbie → Sentry alert + status `needs_manual_intervention`.
+- Używaj gotowych workflowów Medusy (`completeCartWorkflow`, `createOrderWorkflow`). Custom tylko gdy wpinasz krok.
+
+## NEVER
+- Nie rób wszystkiego w jednym subscriberze. Email + faktura + analytics w osobnych = niezależne retry.
+- Nie wołaj Fakturowni w handlerze `completeCart` — blokuje checkout o 400-2000ms. Zawsze w subscriberze.
+- Nie wysyłaj emaila „order shipped" z subscribera `order.placed`. To event `fulfillment.shipped`.
+- Nie ufaj `order.total` z argumentu subscribera — `orderService.retrieve(id)` dla świeżych danych.
+- Nie modyfikuj `order` z subscribera inaczej niż przez metadata lub admin workflows — łamiesz audyt.
+
+## Bugi które łapie
+- Medusa retry 3× → 3 faktury z jednego zamówienia → KSeF odrzuca, klient wkurzony. Metadata flag blokuje.
+- Fakturownia pada 30 min → cały `order.placed` fails → emaili nie ma. Izolowane subscribery = email leci, faktura retryuje.
+- Pixel + CAPI bez `event_id` → Meta liczy 2× → raport CAC połowę wartości. Deduplikacja przez `order.id`.
+
+## KSeF — Krajowy System e-Faktur (obowiązek PL od 01.02.2026)
+- **Scope**: każda faktura B2B (klient z NIP) MUSI iść przez KSeF. B2C (konsument bez NIP) — nadal klasyczna faktura PDF.
+- **Integracja**: **Fakturownia** (certyfikowany dostawca KSeF) albo **inFakt**. Handlują podpis + wysyłkę + UPO.
+- **Flow w Medusa subscribers**:
+  1. `order.placed` → sprawdź czy klient ma NIP (`billing_address.metadata.nip` lub `customer.company_nip`).
+  2. B2B → stwórz fakturę w Fakturowni przez API (`POST /invoices.json` z flagą `ksef: true`).
+  3. Fakturownia wysyła do KSeF async (do 15 min).
+  4. Webhook Fakturowni `invoice.ksef_sent` → zapisz `ksef_id` + `upo_url` w `order.metadata`.
+  5. Email do klienta: PDF + UPO + link do KSeF (klient musi potwierdzić odbiór w KSeF dla odliczenia VAT).
+- **Fallback** (KSeF ma regularne awarie):
+  - Tryb offline: faktura wystawiona, flaga `ksef_pending: true`, retry cron co godzinę.
+  - Hard limit: po 48h bez UPO → Sentry alert + księgowa ręcznie.
+- **Dane wymagane**:
+  - Sprzedawca: NIP (10 cyfr), REGON, KRS, adres.
+  - Nabywca B2B: NIP obowiązkowo, nazwa firmy, adres, kod kraju (PL/EU).
+  - Pozycje: nazwa, ilość, cena netto, VAT rate, VAT amount, PKWiU (opcjonalnie).
+- **NEVER**: nie generuj własnego numeru faktury — Fakturownia nadaje zgodny z KSeF (`FA/YYYY/MM/NNN`).
+- **Testowanie**: Fakturownia sandbox KSeF → użyj w staging. NIGDY prod KSeF w testach.
+
+## Inne wymagania PL 2026
+- **JPK_VAT**: miesięcznie, automatycznie z Fakturowni. Księgowa klika — bez subscribera.
+- **Ceny brutto**: na storefroncie default brutto (PLN). Netto + VAT tylko gdy user zaznaczy „VAT exclusive" (B2B preference).
+- **Regulamin sklepu**: link w stopce + checkbox `[ ] Akceptuję regulamin i politykę prywatności` w checkoucie PRZED submit. Wersjonowany w repo z datą.
+- **Prawo odstąpienia 14 dni** (konsument): email po `fulfillment.shipped` z formularzem zwrotu + linkiem do `/zwrot`.
+- **Oznaczenie promocji** (ustawa omnibus 2023): przy obniżce cena musi pokazywać „Najniższa cena z 30 dni przed obniżką: X zł". Medusa custom field + renderer w PDP.
+
+## Data retention (PL tax + GDPR)
+- **Faktury**: 5 lat (art. 70 Ordynacji podatkowej). Storage: Fakturownia + backup PDF w R2.
+- **Order data**: 5 lat (faktura linkuje do order_id — razem jedna całość prawna).
+- **Customer PII w orderach**: po 5 latach → **anonimizacja** (name → „Anonimowy", email → `deleted_<hash>@anon.local`, address NULL).
+  - Cron yearly `anonymize_old_orders` → flag `anonymized: true` + nadpisz PII.
+- **Cart guest / abandoned**: TTL 90 dni → hard delete (cron daily).
+- **Session logs / login attempts**: 12 miesięcy (uzasadniony interes — fraud, chargeback investigation).
+
+## Right to be forgotten (GDPR art. 17)
+- User klika „Usuń konto" w `/moje-konto/prywatnosc`.
+- Flow:
+  1. Confirm dialog + email verification link (prevent accidental).
+  2. Soft delete: `customer.deleted_at = now()`, email → `deleted_<uuid>@anon.local`.
+  3. Webhook delete w processorach: PostHog, MailerLite, Sentry (customer details tylko, faktury zostają).
+  4. Orders: anonimizacja PII natychmiast, faktury księgowe zachowane 5 lat (retention exception).
+  5. Email confirmation: „Konto usunięte. Dane księgowe zanonimizowane do [data + 5 lat]".
+- Hard delete customer record po 30 dniach (gdy orders już anonimizowane).
+- Subscriber `customer.deletion_requested` → trigger wszystkie kroki async w workflow.
+
+## VAT OSS (cross-border EU B2C)
+- Sprzedaż do konsumentów UE > **10 000 EUR / rok** → rejestracja **VAT OSS** (jedna deklaracja w PL dla całej UE).
+- Stawki VAT per kraj w Medusa region config (DE 19%, FR 20%, IT 22%, CZ 21%, SK 20%).
+- B2B z valid VAT ID → 0% VAT + **reverse charge** (automat w Fakturowni z VIES check).
+- B2C bez VAT ID → VAT kraju konsumenta (shipping country).
+- Validation VAT ID: VIES API (`ec.europa.eu/taxation_customs/vies`) — cache 24h, fallback na manual gdy VIES pada.
