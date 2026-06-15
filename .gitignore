@@ -13,5 +13,6 @@ playwright-report/
 test-results/
 public/images/cms/
 **/static-cms-media-map.ts
+!packages/cms/src/static-cms-media-map.ts
 .DS_Store
 Thumbs.db
