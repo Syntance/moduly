@@ -12,7 +12,9 @@
   },
   "dependencies": {
     "@medusajs/js-sdk": "^2.8.5",
+    "@moduly/analytics": "workspace:*",
     "@moduly/auth-core": "workspace:*",
+    "@moduly/legal-consent": "workspace:*",
     "@moduly/cms": "workspace:*",
     "@moduly/client-panel": "workspace:*",
     "@moduly/commerce": "workspace:*",

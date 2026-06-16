@@ -9,7 +9,7 @@ import {
 	useState,
 	type ReactNode,
 } from "react";
-import { bootstrapCartSession, getCart } from "@moduly/commerce";
+import { addLineItem, bootstrapCartSession, getCart } from "@moduly/commerce";
 import { formatPrice } from "@moduly/commerce";
 
 type CartItem = {
@@ -26,6 +26,7 @@ type CartContextValue = {
 	total: number;
 	isInitialized: boolean;
 	refreshCart: () => Promise<void>;
+	addItem: (variantId: string, quantity?: number) => Promise<void>;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -86,6 +87,27 @@ export function CartProvider({ children }: { children: ReactNode }) {
 		applyCart(cart);
 	}, [applyCart, cartId]);
 
+	const addItem = useCallback(
+		async (variantId: string, quantity = 1) => {
+			let activeCartId = cartId;
+			if (!activeCartId) {
+				const cart = await bootstrapCartSession();
+				if (!cart?.id) {
+					throw new Error("Brak koszyka.");
+				}
+				activeCartId = String(cart.id);
+				applyCart(cart);
+			}
+			const updated = await addLineItem(activeCartId, variantId, quantity);
+			if (updated && typeof updated === "object") {
+				applyCart(updated as Record<string, unknown>);
+			} else {
+				await refreshCart();
+			}
+		},
+		[applyCart, cartId, refreshCart],
+	);
+
 	useEffect(() => {
 		let cancelled = false;
 		void bootstrapCartSession()
@@ -101,8 +123,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
 	}, [applyCart]);
 
 	const value = useMemo(
-		() => ({ cartId, items, total, isInitialized, refreshCart }),
-		[cartId, items, total, isInitialized, refreshCart],
+		() => ({ cartId, items, total, isInitialized, refreshCart, addItem }),
+		[cartId, items, total, isInitialized, refreshCart, addItem],
 	);
 
 	return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

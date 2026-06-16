@@ -3,8 +3,7 @@
 import type { ReactNode } from "react";
 import { AnalyticsProvider } from "@moduly/analytics";
 import { ConsentProvider, CookieConsent } from "@moduly/legal-consent";
-import { modulyConfig } from "@/moduly.config";
-import { CartProvider } from "@/components/providers/cart-provider";
+import { modulyConfig } from "../../moduly.config";
 
 export function Providers({ children }: { children: ReactNode }) {
 	return (
@@ -13,7 +12,7 @@ export function Providers({ children }: { children: ReactNode }) {
 			privacyPolicyHref="/polityka-prywatnosci"
 		>
 			<AnalyticsProvider locale={modulyConfig.commerce.locale}>
-				<CartProvider>{children}</CartProvider>
+				{children}
 				<CookieConsent />
 			</AnalyticsProvider>
 		</ConsentProvider>

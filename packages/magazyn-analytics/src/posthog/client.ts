@@ -12,7 +12,7 @@ import type {
 const FETCH_TIMEOUT_MS = 30_000;
 
 const ECOMMERCE_FUNNEL: Array<{ event: string; label: string }> = [
-	{ event: "view_item", label: "Wyświetlenie produktu" },
+	{ event: "product_view", label: "Wyświetlenie produktu" },
 	{ event: "add_to_cart", label: "Dodanie do koszyka" },
 	{ event: "begin_checkout", label: "Rozpoczęcie checkoutu" },
 	{ event: "purchase", label: "Zakup" },

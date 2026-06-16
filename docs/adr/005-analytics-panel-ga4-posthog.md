@@ -9,7 +9,7 @@ Zaakceptowane — 2026-06-15
 Panel `/magazyn/panel/statystyki` miał statyczne dane demo (recharts). Potrzebny jest widok live z dwóch źródeł:
 
 - **GA4** — ruch, kanały, top strony, przychód z `purchase`
-- **PostHog** — lejek e-commerce (`view_item` → `purchase`), top zdarzenia, trend `$pageview`
+- **PostHog** — lejek e-commerce (`product_view` → `purchase`), top zdarzenia, trend `$pageview`
 
 Klucze API nie mogą trafić do bundle klienta. Zgodność z GDPR: dane agregowane, bez PII w panelu.
 
@@ -27,7 +27,8 @@ Klucze API nie mogą trafić do bundle klienta. Zgodność z GDPR: dane agregowa
 - Wymaga konfiguracji service account GA4 z dostępem Reader do property.
 - PostHog wymaga spójnych nazw eventów e-commerce w storefront.
 - Przy błędzie API panel pokazuje komunikat, nie crashuje całej strony.
-- Kolejny krok: mapowanie `CheckoutAnalyticsCallbacks` → PostHog/GA4 w storefront (osobny task).
+- Storefront: `@moduly/analytics` + `@syntance/analytics-events` — wdrożone; konfiguracja kluczy: [analytics.md](../analytics.md).
+- Lejek PostHog w panelu używa nazwy `product_view` (słownik Syntance), nie `view_item`.
 
 ## Alternatives
 

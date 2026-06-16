@@ -128,7 +128,10 @@ moduly add magazyn --target ../zewnetrzny-projekt --vendor
 
 ## Pakiet `@moduly/legal-consent`
 
-Baner cookies i strony prawne:
+Baner cookies, strony prawne i analityka client-side:
+
+- Baner: `@moduly/legal-consent` (Consent Mode v2)
+- Tracking: `@moduly/analytics` — patrz [analytics.md](analytics.md) (klucze `NEXT_PUBLIC_*`, smoke test)
 
 ```tsx
 // app/layout.tsx
@@ -202,6 +205,7 @@ pnpm typecheck && pnpm lint && pnpm test && pnpm build
 
 ## Zobacz też
 
+- [analytics.md](analytics.md) — klucze API, zgody, smoke test storefrontu
 - [architecture.md](architecture.md)
 - [payments.md](payments.md)
 - [security.md](security.md)

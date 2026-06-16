@@ -2,9 +2,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { formatPrice, medusa } from "@moduly/commerce";
+import { formatPrice, medusa, toMinorUnitsFromDecimal } from "@moduly/commerce";
 import { getSiteSettings } from "@moduly/cms";
 import { buildMetadata } from "@moduly/cms/metadata";
+import { AddToCartButton } from "@/components/shop/add-to-cart-button";
+import { ProductViewTracker } from "@/components/shop/product-view-tracker";
 import { getSiteUrl } from "@/lib/site-url";
 
 type Props = { params: Promise<{ handle: string }> };
@@ -57,10 +59,16 @@ export default async function ProductPage({ params }: Props) {
 	if (!product) notFound();
 
 	const variant = product.variants?.[0];
-	const price = variant?.calculated_price?.calculated_amount ?? 0;
+	const priceMinor = toMinorUnitsFromDecimal(variant?.calculated_price?.calculated_amount ?? 0);
+	const variantId = variant?.id ?? product.id;
 
 	return (
 		<div className="mx-auto max-w-6xl px-4 py-10">
+			<ProductViewTracker
+				productId={variantId}
+				title={product.title ?? "Produkt"}
+				priceMinor={priceMinor}
+			/>
 			<nav className="mb-6 text-sm text-muted-foreground">
 				<Link href="/sklep" className="hover:text-foreground">
 					Sklep
@@ -89,8 +97,8 @@ export default async function ProductPage({ params }: Props) {
 
 				<div>
 					<h1 className="font-serif text-3xl text-foreground">{product.title}</h1>
-					{price > 0 ? (
-						<p className="mt-4 text-2xl tabular-nums">{formatPrice(price)}</p>
+					{priceMinor > 0 ? (
+						<p className="mt-4 text-2xl tabular-nums">{formatPrice(priceMinor)}</p>
 					) : null}
 					{product.description ? (
 						<div
@@ -98,9 +106,13 @@ export default async function ProductPage({ params }: Props) {
 							dangerouslySetInnerHTML={{ __html: product.description }}
 						/>
 					) : null}
-					<p className="mt-8 text-sm text-muted-foreground">
-						Konfigurator produktu i dodawanie do koszyka — rozszerz w projekcie docelowym.
-					</p>
+					{variant?.id ? (
+						<AddToCartButton
+							variantId={variant.id}
+							title={product.title ?? "Produkt"}
+							priceMinor={priceMinor}
+						/>
+					) : null}
 				</div>
 			</div>
 		</div>

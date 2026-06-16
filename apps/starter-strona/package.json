@@ -11,7 +11,9 @@
     "clean": "rm -rf .next .turbo"
   },
   "dependencies": {
+    "@moduly/analytics": "workspace:*",
     "@moduly/auth-core": "workspace:*",
+    "@moduly/legal-consent": "workspace:*",
     "@moduly/cms": "workspace:*",
     "@moduly/config": "workspace:*",
     "@moduly/data-store": "workspace:*",

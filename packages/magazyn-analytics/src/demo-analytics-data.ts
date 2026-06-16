@@ -65,14 +65,14 @@ export const demoAnalyticsDashboard: AnalyticsDashboardData = {
 		},
 		traffic: posthogTraffic,
 		funnel: [
-			{ event: "view_item", label: "Wyświetlenie produktu", count: 28_420, rateFromTop: 100 },
+			{ event: "product_view", label: "Wyświetlenie produktu", count: 28_420, rateFromTop: 100 },
 			{ event: "add_to_cart", label: "Dodanie do koszyka", count: 6_842, rateFromTop: 24.1 },
 			{ event: "begin_checkout", label: "Rozpoczęcie checkoutu", count: 2_918, rateFromTop: 10.3 },
 			{ event: "purchase", label: "Zakup", count: 831, rateFromTop: 2.9 },
 		],
 		topEvents: [
 			{ event: "$pageview", count: 64_980 },
-			{ event: "view_item", count: 28_420 },
+			{ event: "product_view", count: 28_420 },
 			{ event: "add_to_cart", count: 6_842 },
 			{ event: "begin_checkout", count: 2_918 },
 			{ event: "purchase", count: 831 },

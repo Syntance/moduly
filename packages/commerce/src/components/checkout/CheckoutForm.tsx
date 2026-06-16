@@ -4,6 +4,7 @@ import type { ComponentType, ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import DOMPurify from "isomorphic-dompurify";
 import type { Address } from "@moduly/types";
+import { useAnalytics } from "@moduly/analytics";
 import { PaymentSelector } from "./PaymentSelector";
 import { isP24CircuitOpen, recordP24Failure } from "../../checkout/p24-circuit-breaker";
 import { CART_ID_STORAGE_KEY } from "../../medusa/cart-bootstrap";
@@ -186,43 +187,6 @@ export type CheckoutCartItem = {
 	thumbnail?: string | null;
 };
 
-export type CheckoutAnalyticsCallbacks = {
-	onCheckoutStart?: (payload: {
-		total: number;
-		currency: string;
-		items: CheckoutCartItem[];
-	}) => void;
-	onCheckoutStep?: (payload: { stepNumber: number; cartValue: number }) => void;
-	onCheckoutAbandon?: (payload: {
-		lastStep: CheckoutStep;
-		cartValue: number;
-		hasEmail: boolean;
-	}) => void;
-	onFormStart?: (formName: string) => void;
-	onFormSubmit?: (payload: { formName: string }) => void;
-	onFormFieldError?: (payload: {
-		formName: string;
-		field: string;
-		error: string;
-		step: number;
-	}) => void;
-	onPurchase?: (payload: {
-		id: string;
-		total: number;
-		currency: string;
-		items: CheckoutCartItem[];
-		paymentMethod: string;
-		shippingMethod: string;
-		checkout_duration_seconds?: number;
-	}) => void;
-	onIdentifyLead?: (payload: { email: string; name?: string; source: string }) => void;
-	onMarkPurchaseCustomer?: (payload: {
-		email: string;
-		orderId: string;
-		value: number;
-	}) => void;
-};
-
 export interface CheckoutFormProps {
 	cartId: string | null;
 	items: CheckoutCartItem[];
@@ -232,7 +196,7 @@ export interface CheckoutFormProps {
 	getRegionId?: () => Promise<string>;
 	paths?: CheckoutPaths;
 	supportEmail?: string;
-	analytics?: CheckoutAnalyticsCallbacks;
+	currency?: string;
 	components: {
 		ShippingSelector: ComponentType<{
 			selectedOptionId: string;
@@ -269,11 +233,12 @@ export function CheckoutForm({
 	getRegionId = getPolishRegionId,
 	paths = defaultCheckoutPaths,
 	supportEmail = "kontakt@example.com",
-	analytics,
+	currency = "PLN",
 	components,
 	legalLinks = { termsHref: "/regulamin", privacyHref: "/polityka-prywatnosci" },
 }: CheckoutFormProps) {
 	const { ShippingSelector, OrderSummary, CheckoutTrustBadges } = components;
+	const analytics = useAnalytics();
 
 	const [step, setStep] = useState<CheckoutStep>(1);
 	const [formStarted, setFormStarted] = useState(false);
@@ -329,12 +294,12 @@ export function CheckoutForm({
 		if (!cartId || items.length === 0) return;
 		beginCheckoutFiredRef.current = true;
 		checkoutStartTimeRef.current = Date.now();
-		analytics?.onCheckoutStart?.({
-			total,
-			currency: "PLN",
-			items,
+		analytics.beginCheckout({
+			currency,
+			value: total,
+			items: analytics.toAnalyticsItems(items),
 		});
-	}, [cartId, items, total, analytics]);
+	}, [cartId, items, total, analytics, currency]);
 
 	const purchaseSentRef = useRef(false);
 	const lastStepRef = useRef<CheckoutStep>(1);
@@ -383,10 +348,11 @@ export function CheckoutForm({
 		const onUnload = () => {
 			if (purchaseSentRef.current) return;
 			if (!cartId || items.length === 0) return;
-			analytics?.onCheckoutAbandon?.({
-				lastStep: lastStepRef.current,
-				cartValue: abandonSnapshotRef.current.cartValue,
-				hasEmail: abandonSnapshotRef.current.hasEmail,
+			analytics.checkoutAbandon({
+				last_step: String(lastStepRef.current),
+				cart_value: abandonSnapshotRef.current.cartValue,
+				currency,
+				has_email_domain: abandonSnapshotRef.current.hasEmail,
 			});
 		};
 		window.addEventListener("beforeunload", onUnload);
@@ -395,7 +361,7 @@ export function CheckoutForm({
 			window.removeEventListener("beforeunload", onUnload);
 			window.removeEventListener("pagehide", onUnload);
 		};
-	}, [cartId, items.length, analytics]);
+	}, [cartId, items.length, analytics, currency]);
 
 	const skipPersistDraftRef = useRef(false);
 
@@ -491,15 +457,11 @@ export function CheckoutForm({
 				return next;
 			});
 			if (error) {
-				analytics?.onFormFieldError?.({
-					formName: "checkout_contact",
+				analytics.formFieldError({
+					form_name: "checkout_contact",
 					field,
-					error,
 					step: 1,
 				});
-			}
-			if (field === "email" && formData.email.includes("@")) {
-				analytics?.onIdentifyLead?.({ email: formData.email, source: "checkout" });
 			}
 		},
 		[formData, analytics],
@@ -511,7 +473,7 @@ export function CheckoutForm({
 	const handleFocus = useCallback(() => {
 		if (!formStarted) {
 			setFormStarted(true);
-			analytics?.onFormStart?.("checkout_contact");
+			analytics.formStart({ form_name: "checkout_contact" });
 		}
 	}, [formStarted, analytics]);
 
@@ -557,7 +519,7 @@ export function CheckoutForm({
 		setSubmitting(true);
 		setSubmitSlow(false);
 		submitSlowTimerRef.current = setTimeout(() => { setSubmitSlow(true); }, 3000);
-		analytics?.onFormSubmit?.({ formName: "checkout_payment" });
+		analytics.formSubmit({ form_name: "checkout_payment" });
 
 		const payment = formDataRef.current;
 
@@ -578,7 +540,11 @@ export function CheckoutForm({
 					payment.paymentProviderId,
 					sanitizedNotes,
 				);
-				analytics?.onCheckoutStep?.({ stepNumber: 3, cartValue: total });
+				analytics.checkoutStep({
+					step_number: 3,
+					cart_value: total,
+					currency,
+				});
 				if (typeof window !== "undefined") {
 					markP24PaymentStarted(cartId);
 					window.location.assign(
@@ -608,26 +574,28 @@ export function CheckoutForm({
 				throw new Error(msg);
 			}
 
-			analytics?.onCheckoutStep?.({ stepNumber: 3, cartValue: total });
+			analytics.checkoutStep({
+				step_number: 3,
+				cart_value: total,
+				currency,
+			});
 
 			const checkoutDurationSeconds = checkoutStartTimeRef.current
 				? Math.round((Date.now() - checkoutStartTimeRef.current) / 1000)
 				: undefined;
 
-			analytics?.onPurchase?.({
-				id: result.order.id,
-				total,
-				currency: "PLN",
-				items,
-				paymentMethod: payment.paymentProviderId,
-				shippingMethod: payment.shippingOptionId,
+			analytics.purchase({
+				transaction_id: result.order.id,
+				value: total,
+				currency,
+				items: analytics.toAnalyticsItems(items),
+				payment_method: payment.paymentProviderId,
+				shipping_method: payment.shippingOptionId,
 				checkout_duration_seconds: checkoutDurationSeconds,
 			});
-			analytics?.onMarkPurchaseCustomer?.({
-				email: payment.email,
-				orderId: result.order.id,
-				value: total,
-			});
+			if (payment.newsletter) {
+				analytics.emailSignup({ source: "checkout" });
+			}
 			purchaseSentRef.current = true;
 
 			const isBankTransfer = payment.paymentProviderId === SYSTEM_PAYMENT_PROVIDER_ID;
@@ -709,7 +677,7 @@ export function CheckoutForm({
 			}
 			submittingRef.current = false;
 		}
-	}, [cartId, items, total, refreshCart, analytics, paths, scheduleStaleReset]);
+	}, [cartId, items, total, refreshCart, analytics, paths, scheduleStaleReset, currency]);
 
 	const trustBadges: ReactNode = CheckoutTrustBadges ? <CheckoutTrustBadges /> : null;
 
@@ -911,14 +879,14 @@ export function CheckoutForm({
 											? { company: formData.companyName }
 											: {}),
 									};
-									analytics?.onFormSubmit?.({ formName: "checkout_contact" });
-									analytics?.onCheckoutStep?.({ stepNumber: 1, cartValue: total });
+									analytics.formSubmit({ form_name: "checkout_contact" });
+									analytics.checkoutStep({
+										step_number: 1,
+										cart_value: total,
+										currency,
+									});
 									if (formData.email.includes("@")) {
-										analytics?.onIdentifyLead?.({
-											email: formData.email,
-											name: `${formData.firstName} ${formData.lastName}`.trim(),
-											source: "checkout",
-										});
+										analytics.leadFromEmail("checkout", formData.email);
 									}
 									await saveContactDetails(cartId, formData.email, address);
 									setStep(2);
@@ -977,8 +945,12 @@ export function CheckoutForm({
 									setShippingSaveError(null);
 									setPreparingPayment(true);
 									try {
-										analytics?.onFormSubmit?.({ formName: "checkout_shipping" });
-										analytics?.onCheckoutStep?.({ stepNumber: 2, cartValue: total });
+										analytics.formSubmit({ form_name: "checkout_shipping" });
+										analytics.checkoutStep({
+											step_number: 2,
+											cart_value: total,
+											currency,
+										});
 										const { providerId } = await prefetchPaymentReadiness(
 											getRegionId,
 											supportEmail,

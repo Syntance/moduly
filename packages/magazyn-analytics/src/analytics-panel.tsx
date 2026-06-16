@@ -232,7 +232,7 @@ export function AnalyticsPanel({ data, demo = false }: AnalyticsPanelProps) {
 				<Card>
 					<div className="mb-4 flex items-center justify-between gap-2">
 						<h2 className="font-serif text-lg text-foreground">Lejek e-commerce (PostHog)</h2>
-						<Badge tone="brand">view_item → purchase</Badge>
+						<Badge tone="brand">product_view → purchase</Badge>
 					</div>
 					<div className="space-y-3">
 						{data.posthog.funnel.map((step) => (

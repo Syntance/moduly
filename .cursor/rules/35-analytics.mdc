@@ -1,0 +1,40 @@
+---
+description: Standard analityki Syntance — słownik, dispatch, zgody, zakazy inline trackingu
+alwaysApply: true
+---
+
+# Analityka Syntance (Moduly)
+
+## MUST
+
+- Każdy projekt storefront + magazyn instaluje `@syntance/analytics-events` + `@moduly/analytics`.
+- Eventy definiowane **wyłącznie** w `@syntance/analytics-events` (`EVENT_REGISTRY`, `EventPayloads`).
+- Komponenty trackują **tylko** przez `useAnalytics()` z `@moduly/analytics`.
+- Fan-out do narzędzi **tylko** w `packages/analytics/src/track.ts` → `destinations/*`.
+- Root layout opakowany w `<AnalyticsProvider>` (+ `@moduly/legal-consent` baner).
+- Consent Mode v2: `initConsentMode()` default **denied**; GA4/Meta dopiero po `setConsent`.
+- PostHog: host EU (`NEXT_PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com`), `autocapture:false`, `capture_pageview:false`, `mask_all_text:true`.
+- Tracking aktywny tylko gdy `NODE_ENV=production` **i** ustawione `NEXT_PUBLIC_*` ID.
+- Identyfikatory GA4/PostHog/Meta/Clarity **tylko** w ENV (`NEXT_PUBLIC_*`), nigdy hardcodowane.
+- E-commerce: snake_case + payload GA4 recommended (`items[]`, `value` w groszach, `currency`).
+- Zero PII w parametrach (email, telefon, imię). Dozwolone: `email_domain`, hash, kategorie.
+
+## NEVER
+
+- Nie definiuj eventów inline (`track("custom_string")` poza `EventKey`).
+- Nie wołaj `gtag(`, `fbq(`, `posthog.capture(` poza `packages/analytics/src/destinations/`.
+- Nie dodawaj nowego trackera bez wpisu w `EVENT_REGISTRY` + destination w fan-out.
+- Nie wysyłaj eventów przed zgodą użytkownika (analytics / marketing).
+- Nie loguj PII do Sentry breadcrumbs ani analytics payload.
+
+## Domyślne destinationy
+
+- GA4 + PostHog (EU) — po zgodzie `analytics`.
+- Meta Pixel — po zgodzie `marketing` i tylko gdy event ma `meta` w registry.
+- Clarity — opcjonalnie, po zgodzie `analytics`.
+
+## Nowy event
+
+1. Dodaj wpis w `packages/analytics-events/src/registry.ts` + typ w `payloads.ts`.
+2. Użyj przez `useAnalytics()` w komponencie.
+3. Fan-out obsługuje `track.ts` automatycznie wg registry i zgód.

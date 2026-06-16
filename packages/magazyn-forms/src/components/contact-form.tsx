@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useId, useRef, useState, type ReactNode } from "react";
+import { useActionState, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useAnalytics } from "@moduly/analytics";
 import { Button, Input } from "@moduly/ui";
 import {
 	type ContactTopicPreset,
@@ -31,19 +32,40 @@ export function ContactForm({
 	footerAside,
 	onSubmitted,
 }: ContactFormProps) {
+	const analytics = useAnalytics();
+	const formName = `contact_${topicPreset}`;
 	const topicOptions = topicOptionsProp ?? getContactTopicOptions(topicPreset);
 	const embedded = variant === "embedded";
 	const [state, formAction, isPending] = useActionState(submitContact, INITIAL);
 	const [topic, setTopic] = useState("");
 	const lastSubmittedRef = useRef<string | null>(null);
+	const formStartedRef = useRef(false);
 	const topicId = useId();
 
-	if (state.status === "success") {
+	useEffect(() => {
+		if (state.status !== "success") return;
 		const key = `${state.topic}:${state.topicOther ?? ""}`;
-		if (lastSubmittedRef.current !== key) {
-			lastSubmittedRef.current = key;
-			onSubmitted?.({ topic: state.topic, topicOther: state.topicOther });
+		if (lastSubmittedRef.current === key) return;
+		lastSubmittedRef.current = key;
+		analytics.formSubmit({ form_name: formName });
+		analytics.lead({ source: formName });
+		onSubmitted?.({ topic: state.topic, topicOther: state.topicOther });
+	}, [analytics, formName, onSubmitted, state]);
+
+	useEffect(() => {
+		if (state.status !== "error" || !state.errors) return;
+		for (const field of Object.keys(state.errors)) {
+			analytics.formFieldError({ form_name: formName, field });
 		}
+	}, [analytics, formName, state]);
+
+	const handleFormFocus = () => {
+		if (formStartedRef.current) return;
+		formStartedRef.current = true;
+		analytics.formStart({ form_name: formName });
+	};
+
+	if (state.status === "success") {
 		return (
 			<div className="rounded-3xl border border-border bg-card p-8 text-center md:p-12">
 				<p className="font-serif text-2xl font-semibold leading-tight text-foreground md:text-3xl">
@@ -75,6 +97,7 @@ export function ContactForm({
 			action={formAction}
 			className="rounded-3xl border border-border bg-card p-6 md:p-8"
 			noValidate
+			onFocusCapture={handleFormFocus}
 		>
 			<input type="hidden" name="formPreset" value={topicPreset} />
 			{embedded ? (

@@ -17,6 +17,7 @@
   "dependencies": {
     "@medusajs/js-sdk": "^2.8.5",
     "@medusajs/types": "^2.8.5",
+    "@moduly/analytics": "workspace:*",
     "@moduly/types": "workspace:*",
     "meilisearch": "^0.49.0",
     "zod": "^3.25.76"
