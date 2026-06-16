@@ -19,13 +19,35 @@ moduly/
 │   ├── cms/                # Parser CMS, metadata, revalidacja
 │   ├── commerce/           # Koszyk, checkout, Meilisearch
 │   ├── payments/           # pickPreferredProvider, ID providerów
-│   ├── magazyn-*/          # Moduły panelu administracyjnego
+│   ├── magazyn-core/       # Sesja admina, env, Medusa client
+│   ├── magazyn-analytics/  # Statystyki: sprzedaż + GA4/PostHog
+│   ├── magazyn-orders/     # Zamówienia
+│   ├── magazyn-products/   # Produkty
+│   ├── magazyn-categories/ # Kategorie
+│   ├── magazyn-content/    # CMS w panelu
+│   ├── magazyn-emails/     # Maile transakcyjne
+│   ├── magazyn-forms/      # Formularze + skrzynka
+│   ├── magazyn-returns/    # Zwroty i reklamacje
 │   ├── client-panel/       # Panel klienta (OTP)
 │   ├── legal-consent/      # Baner cookies + szablony stron prawnych
+│   ├── seo-geo/              # SEO per strona
 │   └── ui/                 # Komponenty UI (Tailwind v4)
 ├── cli/                    # @syntance/moduly — create / add
+├── e2e/                    # Playwright
 └── docs/                   # Dokumentacja + ADR
 ```
+
+Pełna struktura, skrypty `pnpm` i tabele portów: **[README.md](../README.md)**.
+
+### panel-demo vs startery
+
+| | `apps/panel-demo` | `starter-sklep` / `starter-strona` |
+|--|-------------------|-------------------------------------|
+| Cel | Prototyp UX, screenshoty | Produkcja |
+| UI | Własne komponenty demo | `@moduly/ui` + `magazyn-*` |
+| Trasa panelu | `/magazyn/*` | `/magazyn/panel/*` |
+| Backend | brak (mock) | Medusa / Postgres |
+| Uruchomienie | `pnpm dev:demo` | `pnpm dev:sklep` / `dev:strona` |
 
 ## DataStore
 
@@ -146,3 +168,4 @@ Bez sekretów — klucze API tylko w ENV.
 - [002-payment-priority.md](adr/002-payment-priority.md) — kolejność providerów płatności
 - [003-auth-provider.md](adr/003-auth-provider.md) — MedusaAuth vs PostgresAuth
 - [004-audit-composer-vs-moduly.md](adr/004-audit-composer-vs-moduly.md) — ewolucja z podejścia „composer”
+- [005-analytics-panel-ga4-posthog.md](adr/005-analytics-panel-ga4-posthog.md) — panel statystyk GA4 + PostHog

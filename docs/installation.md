@@ -16,12 +16,51 @@ git clone https://github.com/Syntance/moduly.git
 cd moduly
 pnpm install
 
+# Prototyp UI panelu (mock data, bez backendu) — http://localhost:3002/magazyn
+pnpm dev:demo
+
 # Strona CMS (Postgres)
 pnpm dev:strona
 
-# Sklep (storefront + Medusa backend)
+# Sklep (storefront + Medusa backend) — http://localhost:3000
 pnpm dev:sklep
 ```
+
+### Panel demo (`apps/panel-demo`)
+
+Wizualny prototyp panelu magazynu — do briefów, screenshotów i akceptacji UX przed wdrożeniem w starterach.
+
+| | |
+|--|--|
+| Pakiet | `@moduly/panel-demo` |
+| Port | **3002** |
+| Trasa | `/magazyn` (bez prefiksu `/panel`) |
+| Backend | brak — dane w `lib/data.ts` |
+| Zrzuty | `apps/panel-demo/screenshots/` |
+
+```bash
+pnpm dev:demo
+# lub
+pnpm --filter @moduly/panel-demo dev
+```
+
+Pełna struktura monorepo i wszystkie skrypty root: [README.md](../README.md).
+
+## Skrypty root (pnpm)
+
+| Skrypt | Opis |
+|--------|------|
+| `pnpm dev` | Turbo — wszystkie appki z taskiem `dev` |
+| `pnpm dev:demo` | Panel demo (:3002) |
+| `pnpm dev:strona` | Starter CMS |
+| `pnpm dev:sklep` | Starter sklep + Medusa backend |
+| `pnpm build` | Build produkcyjny |
+| `pnpm typecheck` | TypeScript w całym workspace |
+| `pnpm lint` | ESLint |
+| `pnpm test` | Vitest |
+| `pnpm test:e2e` | Playwright |
+| `pnpm clean` | Czyści `.next`, `.turbo`, `dist` |
+| `pnpm format` | Prettier |
 
 ## Tworzenie nowego projektu (CLI)
 
