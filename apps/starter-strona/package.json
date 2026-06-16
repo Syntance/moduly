@@ -20,6 +20,7 @@
     "@moduly/magazyn-core": "workspace:*",
     "@moduly/magazyn-emails": "workspace:*",
     "@moduly/magazyn-forms": "workspace:*",
+    "@moduly/magazyn-settings": "workspace:*",
     "@moduly/types": "workspace:*",
     "@moduly/ui": "workspace:*",
     "drizzle-orm": "^0.44.2",

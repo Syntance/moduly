@@ -236,6 +236,9 @@ importers:
       '@moduly/magazyn-returns':
         specifier: workspace:*
         version: link:../../packages/magazyn-returns
+      '@moduly/magazyn-settings':
+        specifier: workspace:*
+        version: link:../../packages/magazyn-settings
       '@moduly/payments':
         specifier: workspace:*
         version: link:../../packages/payments
@@ -324,6 +327,9 @@ importers:
       '@moduly/magazyn-forms':
         specifier: workspace:*
         version: link:../../packages/magazyn-forms
+      '@moduly/magazyn-settings':
+        specifier: workspace:*
+        version: link:../../packages/magazyn-settings
       '@moduly/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -995,6 +1001,52 @@ importers:
       server-only:
         specifier: ^0.0.1
         version: 0.0.1
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.7
+        version: 19.2.17
+      next:
+        specifier: ^16.2.4
+        version: 16.2.9(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.61.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      react:
+        specifier: ^19.2.0
+        version: 19.2.7
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/magazyn-settings:
+    dependencies:
+      '@moduly/cms':
+        specifier: workspace:*
+        version: link:../cms
+      '@moduly/commerce':
+        specifier: workspace:*
+        version: link:../commerce
+      '@moduly/config':
+        specifier: workspace:*
+        version: link:../config
+      '@moduly/magazyn-core':
+        specifier: workspace:*
+        version: link:../magazyn-core
+      '@moduly/types':
+        specifier: workspace:*
+        version: link:../types
+      '@moduly/ui':
+        specifier: workspace:*
+        version: link:../ui
+      lucide-react:
+        specifier: ^0.511.0
+        version: 0.511.0(react@19.2.7)
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.7(react@19.2.7)
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
     devDependencies:
       '@types/react':
         specifier: ^19.2.7

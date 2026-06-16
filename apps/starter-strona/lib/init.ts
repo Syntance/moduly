@@ -1,6 +1,7 @@
 import "server-only";
 
 import { configureMagazynAnalytics } from "@moduly/magazyn-analytics";
+import { configureMagazynSettings } from "@moduly/magazyn-settings";
 import { configureMagazynModules } from "@moduly/magazyn-core";
 import { configureMagazynForms } from "@moduly/magazyn-forms";
 import { setDataStore } from "@moduly/data-store";
@@ -30,6 +31,12 @@ export function initModuly(): void {
 
   configureMagazynAnalytics({
     basePath: modulyConfig.basePath,
+    guardAdmin: requireAdminSessionForPanel,
+  });
+
+  configureMagazynSettings({
+    basePath: modulyConfig.basePath,
+    commerceBackend: "none",
     guardAdmin: requireAdminSessionForPanel,
   });
 }

@@ -5,6 +5,7 @@ import { configureClientPanel } from "@moduly/client-panel/configure";
 import { createPostgresClient, PostgresStore, setDataStore } from "@moduly/data-store";
 import { configureMagazynAnalytics } from "@moduly/magazyn-analytics";
 import { configureMagazynForms } from "@moduly/magazyn-forms";
+import { configureMagazynSettings } from "@moduly/magazyn-settings";
 import { requireAdminSession } from "@moduly/magazyn-core";
 import { configureMagazynReturns } from "@moduly/magazyn-returns";
 import { configureMagazynModules } from "@moduly/magazyn-core";
@@ -59,6 +60,12 @@ export function initModuly(): void {
 
 	configureMagazynAnalytics({
 		basePath: modulyConfig.basePath,
+		guardAdmin,
+	});
+
+	configureMagazynSettings({
+		basePath: modulyConfig.basePath,
+		commerceBackend: "medusa",
 		guardAdmin,
 	});
 

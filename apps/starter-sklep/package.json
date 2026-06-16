@@ -27,6 +27,7 @@
     "@moduly/magazyn-orders": "workspace:*",
     "@moduly/magazyn-products": "workspace:*",
     "@moduly/magazyn-returns": "workspace:*",
+    "@moduly/magazyn-settings": "workspace:*",
     "@moduly/payments": "workspace:*",
     "@moduly/seo-geo": "workspace:*",
     "@moduly/types": "workspace:*",
