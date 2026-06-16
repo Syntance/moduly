@@ -9,6 +9,7 @@
     "dev": "turbo dev",
     "dev:strona": "turbo dev --filter=@moduly/starter-strona",
     "dev:sklep": "turbo dev --filter=@moduly/starter-sklep --filter=@moduly/backend",
+    "dev:demo": "turbo dev --filter=@moduly/panel-demo",
     "build": "turbo build",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",

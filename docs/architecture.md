@@ -9,6 +9,7 @@ moduly/
 ├── apps/
 │   ├── starter-strona/     # Starter: strona CMS (Postgres)
 │   ├── starter-sklep/      # Starter: sklep + Medusa
+│   ├── panel-demo/         # Prototyp UI panelu (mock data, port 3002)
 │   └── backend/            # MedusaJS v2 (starter-sklep)
 ├── packages/
 │   ├── types/              # Współdzielone typy (DataStore, AuthProvider, PaymentProvider)
