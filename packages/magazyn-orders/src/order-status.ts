@@ -70,7 +70,7 @@ export function fulfillmentStatusBadge(
 export const BADGE_TONE_CLASS: Record<Tone, string> = {
 	neutral: "bg-muted text-muted-foreground",
 	info: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-	success: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+	success: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
 	warning: "bg-amber-500/10 text-amber-600 dark:text-amber-500",
 	danger: "bg-destructive/10 text-destructive",
 	refund: "bg-violet-500/10 text-violet-600 dark:text-violet-400",

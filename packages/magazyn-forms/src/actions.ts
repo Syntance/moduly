@@ -10,7 +10,8 @@ export type ActionResult = { ok: true } | { ok: false; error: string };
 function revalidateContactPaths(): void {
 	const cfg = getMagazynFormsConfig();
 	const base = cfg.basePath;
-	revalidatePath(`${base}/formularze`);
+	revalidatePath(`${base}/panel/formularze`);
+	revalidatePath(`${base}/panel/formularze/otrzymane`);
 	revalidatePath(cfg.contactPagePath);
 	revalidatePath(cfg.privacyPagePath);
 	revalidatePath(cfg.cookiesPagePath);
@@ -19,7 +20,6 @@ function revalidateContactPaths(): void {
 	revalidatePath(cfg.customerPortalPaths.account);
 	revalidatePath(cfg.customerPortalPaths.claims);
 	revalidatePath(cfg.customerPortalPaths.withdrawal);
-	revalidatePath(`${base}/formularze/wyslane`);
 }
 
 export async function saveContactFormsAction(

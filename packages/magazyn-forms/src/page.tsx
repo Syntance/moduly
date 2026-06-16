@@ -9,7 +9,7 @@ export default async function FormularzePage() {
 	await requireFormsAdmin();
 	const cfg = getMagazynFormsConfig();
 	const config = await getContactFormsConfig();
-	const mailsHref = `${cfg.basePath}/maile`;
+	const mailsHref = `${cfg.basePath}/panel/maile`;
 
 	return (
 		<div className="flex flex-col gap-6">

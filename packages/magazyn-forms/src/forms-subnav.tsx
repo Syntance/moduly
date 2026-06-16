@@ -10,8 +10,8 @@ type Props = {
 
 export function FormsSubnav({ basePath }: Props) {
 	const pathname = usePathname();
-	const base = `${basePath}/formularze`;
-	const onSent = pathname.includes("/formularze/wyslane");
+	const base = `${basePath}/panel/formularze`;
+	const onReceived = pathname.includes("/formularze/otrzymane");
 
 	return (
 		<nav
@@ -22,7 +22,7 @@ export function FormsSubnav({ basePath }: Props) {
 				href={base}
 				className={cn(
 					"border-b-2 px-3 py-2 text-sm font-medium transition-colors",
-					!onSent
+					!onReceived
 						? "border-primary text-foreground"
 						: "border-transparent text-muted-foreground hover:text-foreground",
 				)}
@@ -30,15 +30,15 @@ export function FormsSubnav({ basePath }: Props) {
 				Konfiguracja
 			</Link>
 			<Link
-				href={`${base}/wyslane`}
+				href={`${base}/otrzymane`}
 				className={cn(
 					"border-b-2 px-3 py-2 text-sm font-medium transition-colors",
-					onSent
+					onReceived
 						? "border-primary text-foreground"
 						: "border-transparent text-muted-foreground hover:text-foreground",
 				)}
 			>
-				Wysłane
+				Otrzymane
 			</Link>
 		</nav>
 	);

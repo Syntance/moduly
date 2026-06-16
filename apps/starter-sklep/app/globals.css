@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "@moduly/ui/theme.css";
 
+/* Jak w panelu demo — dark: tylko przy .dark, nie przy prefers-color-scheme */
+@custom-variant dark (&:is(.dark *));
+
 @theme inline {
 	--font-sans: system-ui, -apple-system, sans-serif;
 	--font-serif: Georgia, "Times New Roman", serif;

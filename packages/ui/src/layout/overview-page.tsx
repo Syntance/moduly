@@ -1,20 +1,26 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
+import { ModuleTile, Section, StatTile } from "../panel/chrome";
+import { DashboardCharts } from "../panel/dashboard-charts";
+import { formatKwota, moduleBadgeFromHref, panelStats } from "../panel/demo-data";
+import { RecentOrdersSection } from "../panel/recent-orders-section";
 import { buildNavItems } from "./nav-items";
 import type { PanelConfig } from "./types";
 
 export type OverviewPageProps = {
 	config: PanelConfig;
-	/** Opcjonalna sekcja nad kafelkami (np. podsumowanie zamówień). */
+	/** Ukryj demo KPI / wykresy (np. gdy dane z API). */
+	hideDemoAnalytics?: boolean;
+	/** Opcjonalna sekcja nad kafelkami (zastępuje domyślne KPI). */
 	summary?: ReactNode;
 };
 
 /**
- * Prosty pulpit panelu (kafle do włączonych modułów).
- * Re-eksportuj w `app{basePath}/(panel)/page.tsx` z konfiguracją sklepu.
+ * Pulpit panelu — układ 1:1 z moduly-demo: KPI, kafle modułów, wykres, ostatnie zamówienia.
  */
-export function OverviewPage({ config, summary }: OverviewPageProps) {
-	const tiles = buildNavItems(config).filter((item) => item.href !== config.basePath);
+export function OverviewPage({ config, hideDemoAnalytics = false, summary }: OverviewPageProps) {
+	const panel = `${config.basePath}/panel`;
+	const tiles = buildNavItems(config).filter((item) => item.href !== panel);
+	const ordersPath = config.modules.orders ? `${panel}/zamowienia` : panel;
 
 	return (
 		<div className="flex flex-col gap-8">
@@ -23,22 +29,58 @@ export function OverviewPage({ config, summary }: OverviewPageProps) {
 				<p className="mt-1 text-sm text-muted-foreground">Wybierz moduł, którym chcesz zarządzać.</p>
 			</header>
 
-			{summary}
+			{summary ?? (hideDemoAnalytics ? null : (
+				<Section title="Podsumowanie (czerwiec 2026)">
+					<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+						<StatTile
+							label="Przychód"
+							value={formatKwota(panelStats.przychod)}
+							trend={{ val: "18.4%", up: true }}
+							sub="vs. maj"
+						/>
+						<StatTile
+							label="Zamówienia"
+							value={panelStats.zamowienia.toLocaleString("pl-PL")}
+							trend={{ val: "9.2%", up: true }}
+							sub="1 691 w maju"
+						/>
+						<StatTile
+							label="Klienci"
+							value={panelStats.klienci.toLocaleString("pl-PL")}
+							trend={{ val: "5.1%", up: true }}
+							sub="+158 nowych"
+						/>
+						<StatTile
+							label="Śr. wartość koszyka"
+							value={formatKwota(panelStats.srednia)}
+							trend={{ val: "3.1%", up: true }}
+						/>
+					</div>
+				</Section>
+			))}
 
-			<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-				{tiles.map(({ href, label, icon: Icon }) => (
-					<Link
-						key={href}
-						href={href}
-						className="flex items-center gap-3 rounded-xl border border-border bg-card p-5 transition-colors hover:border-foreground/30 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-					>
-						<span className="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
-							<Icon className="size-5" aria-hidden />
-						</span>
-						<span className="font-serif text-lg text-foreground">{label}</span>
-					</Link>
-				))}
-			</div>
+			<Section title="Moduły panelu">
+				<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+					{tiles.map(({ href, label, icon: Icon }) => (
+						<ModuleTile
+							key={href}
+							href={href}
+							label={label}
+							icon={<Icon className="size-5" aria-hidden />}
+							badge={moduleBadgeFromHref(href)}
+						/>
+					))}
+				</div>
+			</Section>
+
+			{hideDemoAnalytics ? null : (
+				<>
+					<DashboardCharts />
+					{config.modules.orders ? (
+						<RecentOrdersSection ordersBasePath={ordersPath} />
+					) : null}
+				</>
+			)}
 		</div>
 	);
 }

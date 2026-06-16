@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
-import { modulyConfig } from "@/moduly.config";
+import { getModulyConfig } from "@moduly/magazyn-core/config";
 
 export const dynamic = "force-dynamic";
 
-export default function SettingsIndexPage() {
-  redirect(`${modulyConfig.basePath}/panel/ustawienia/seo`);
+export default function SettingsOverviewPage() {
+	redirect(`${getModulyConfig().basePath}/panel/ustawienia/ogolne`);
 }

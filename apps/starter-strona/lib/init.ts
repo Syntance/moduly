@@ -1,5 +1,6 @@
 import "server-only";
 
+import { configureMagazynAnalytics } from "@moduly/magazyn-analytics";
 import { configureMagazynModules } from "@moduly/magazyn-core";
 import { configureMagazynForms } from "@moduly/magazyn-forms";
 import { setDataStore } from "@moduly/data-store";
@@ -24,6 +25,11 @@ export function initModuly(): void {
     privacyPagePath: "/polityka-prywatnosci",
     cookiesPagePath: "/polityka-cookies",
     accessibilityPagePath: "/deklaracja-dostepnosci",
+    guardAdmin: requireAdminSessionForPanel,
+  });
+
+  configureMagazynAnalytics({
+    basePath: modulyConfig.basePath,
     guardAdmin: requireAdminSessionForPanel,
   });
 }

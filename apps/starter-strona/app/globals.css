@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "@moduly/ui/theme.css";
 
+@custom-variant dark (&:is(.dark *));
+
 @layer base {
   body {
     @apply bg-background text-foreground antialiased;

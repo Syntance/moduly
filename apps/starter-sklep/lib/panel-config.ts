@@ -14,6 +14,9 @@ export function getPanelConfig(): PanelConfig {
 			content: cfg.modules.content,
 			emails: cfg.modules.emails,
 			settings: cfg.modules.settings,
+			forms: cfg.modules.forms,
+			returns: cfg.modules.returns,
+			statistics: true,
 		},
 	};
 }

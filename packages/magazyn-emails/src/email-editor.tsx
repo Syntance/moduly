@@ -41,9 +41,19 @@ function toRecord(templates: EmailTemplate[]): Record<EmailTemplateType, EmailTe
 	return record;
 }
 
-export function EmailEditor({ initialTemplates }: { initialTemplates: EmailTemplate[] }) {
+export function EmailEditor({
+	initialTemplates,
+	initialType,
+	hideTemplatePicker = false,
+}: {
+	initialTemplates: EmailTemplate[];
+	initialType?: EmailTemplateType;
+	hideTemplatePicker?: boolean;
+}) {
 	const [templates, setTemplates] = useState(() => toRecord(initialTemplates));
-	const [activeType, setActiveType] = useState<EmailTemplateType>(initialTemplates[0]?.type ?? "placed");
+	const [activeType, setActiveType] = useState<EmailTemplateType>(
+		initialType ?? initialTemplates[0]?.type ?? "placed",
+	);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [leftPanelTab, setLeftPanelTab] = useState<"block" | "theme">("block");
 	const [addBlockOpen, setAddBlockOpen] = useState(false);
@@ -294,13 +304,15 @@ export function EmailEditor({ initialTemplates }: { initialTemplates: EmailTempl
 
 	return (
 		<div className="flex flex-col gap-4">
-			<EmailTemplatePicker
-				activeType={activeType}
-				onSelect={switchTemplate}
-				enabledByType={enabledByType}
-				onToggleEnabled={onToggleEnabled}
-				togglingType={togglingType}
-			/>
+			{hideTemplatePicker ? null : (
+				<EmailTemplatePicker
+					activeType={activeType}
+					onSelect={switchTemplate}
+					enabledByType={enabledByType}
+					onToggleEnabled={onToggleEnabled}
+					togglingType={togglingType}
+				/>
+			)}
 
 			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 				<p className="text-sm text-muted-foreground">

@@ -3,6 +3,7 @@ import "server-only";
 import { MedusaAuth } from "@moduly/auth-core";
 import { configureClientPanel } from "@moduly/client-panel/configure";
 import { createPostgresClient, PostgresStore, setDataStore } from "@moduly/data-store";
+import { configureMagazynAnalytics } from "@moduly/magazyn-analytics";
 import { configureMagazynForms } from "@moduly/magazyn-forms";
 import { requireAdminSession } from "@moduly/magazyn-core";
 import { configureMagazynReturns } from "@moduly/magazyn-returns";
@@ -52,6 +53,11 @@ export function initModuly(): void {
 	});
 
 	configureMagazynReturns({
+		basePath: modulyConfig.basePath,
+		guardAdmin,
+	});
+
+	configureMagazynAnalytics({
 		basePath: modulyConfig.basePath,
 		guardAdmin,
 	});

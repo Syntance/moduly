@@ -56,3 +56,5 @@ export {
 } from "./case-email";
 
 export { default as EmailsPage } from "./page";
+export { default as EmailEditorPage } from "./email-editor-page";
+export { EmailsList } from "./emails-list";

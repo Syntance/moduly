@@ -7,6 +7,10 @@ export type ModulesToggle = {
 	emails: boolean;
 	settings: boolean;
 	content: boolean;
+	forms?: boolean;
+	returns?: boolean;
+	/** Domyślnie true — osobna strona analityki pod Przeglądem. */
+	statistics?: boolean;
 };
 
 export type PanelBranding = {

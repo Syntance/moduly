@@ -20,6 +20,7 @@
     "@moduly/data-store": "workspace:*",
     "@moduly/magazyn-categories": "workspace:*",
     "@moduly/magazyn-content": "workspace:*",
+    "@moduly/magazyn-analytics": "workspace:*",
     "@moduly/magazyn-core": "workspace:*",
     "@moduly/magazyn-emails": "workspace:*",
     "@moduly/magazyn-forms": "workspace:*",

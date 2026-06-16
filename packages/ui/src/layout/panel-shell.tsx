@@ -36,7 +36,7 @@ export function PanelShell({ children, config, style, logoutAction }: PanelShell
 		>
 			<div className="mx-auto flex min-h-full w-full max-w-7xl flex-col lg:flex-row">
 				<aside className="flex shrink-0 flex-col gap-6 border-b border-border p-5 lg:sticky lg:top-0 lg:h-screen lg:w-60 lg:border-r lg:border-b-0">
-					<Link href={`${basePath}/panel`} className="block">
+					<Link href={`${basePath}/panel`} className="block shrink-0">
 						<p className="text-[0.65rem] font-medium tracking-[0.25em] text-muted-foreground uppercase">
 							{branding.name}
 						</p>

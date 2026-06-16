@@ -1,29 +1,65 @@
-import { LayoutGrid, Mail, Package, FileText, Settings, ShoppingBag, Tags, type LucideIcon } from "lucide-react";
+import {
+	BarChart3,
+	FileText,
+	LayoutGrid,
+	Mail,
+	MessageSquare,
+	Package,
+	RotateCcw,
+	Settings,
+	ShoppingBag,
+	Tags,
+	type LucideIcon,
+} from "lucide-react";
 import type { ModulesToggle, NavItem, PanelConfig } from "./types";
 
-const MODULE_NAV: Record<keyof ModulesToggle, { segment: string; label: string; icon: LucideIcon }> = {
+const MODULE_NAV: Record<
+	keyof Omit<ModulesToggle, "statistics">,
+	{ segment: string; label: string; icon: LucideIcon }
+> = {
 	orders: { segment: "zamowienia", label: "Zamówienia", icon: ShoppingBag },
 	products: { segment: "produkty", label: "Produkty", icon: Package },
 	categories: { segment: "kategorie", label: "Kategorie", icon: Tags },
-	emails: { segment: "maile", label: "E-maile", icon: Mail },
-	settings: { segment: "ustawienia", label: "Ustawienia sklepu", icon: Settings },
 	content: { segment: "cms", label: "CMS", icon: FileText },
+	emails: { segment: "maile", label: "E-maile", icon: Mail },
+	forms: { segment: "formularze", label: "Formularze", icon: MessageSquare },
+	returns: { segment: "zwroty", label: "Zwroty i reklamacje", icon: RotateCcw },
+	settings: { segment: "ustawienia", label: "Ustawienia sklepu", icon: Settings },
 };
 
-const ORDER: Array<keyof ModulesToggle> = ["orders", "products", "categories", "content", "emails", "settings"];
+const ORDER: Array<keyof Omit<ModulesToggle, "statistics">> = [
+	"orders",
+	"products",
+	"categories",
+	"content",
+	"emails",
+	"forms",
+	"returns",
+	"settings",
+];
 
-/** Buduje listę linków nawigacji z włączonych modułów. */
+/** Buduje listę linków nawigacji — kolejność jak w panelu demo (Lumine). */
 export function buildNavItems(config: Pick<PanelConfig, "basePath" | "modules">): NavItem[] {
 	const { basePath, modules } = config;
+	const panel = `${basePath}/panel`;
 	const items: NavItem[] = [
-		{ href: `${basePath}/panel`, label: "Przegląd", icon: LayoutGrid, exact: true },
+		{ href: panel, label: "Przegląd", icon: LayoutGrid, exact: true },
 	];
+
+	if (modules.statistics !== false) {
+		items.push({
+			href: `${panel}/statystyki`,
+			label: "Statystyki",
+			icon: BarChart3,
+			exact: false,
+		});
+	}
 
 	for (const key of ORDER) {
 		if (!modules[key]) continue;
 		const def = MODULE_NAV[key];
 		items.push({
-			href: `${basePath}/panel/${def.segment}`,
+			href: `${panel}/${def.segment}`,
 			label: def.label,
 			icon: def.icon,
 			exact: false,

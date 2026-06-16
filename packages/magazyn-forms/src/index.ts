@@ -15,6 +15,8 @@ export { ContactForm, type ContactFormProps } from "./components/contact-form";
 export { FormsManager } from "./forms-manager";
 export { FormsSubnav } from "./forms-subnav";
 export { default as FormularzePage } from "./page";
+export { default as FormularzeOtrzymanePage } from "./submissions-page";
+export { SubmissionsList } from "./submissions-list";
 export {
 	buildDefaultContactFormsConfig,
 	buildDefaultTopicsForPreset,

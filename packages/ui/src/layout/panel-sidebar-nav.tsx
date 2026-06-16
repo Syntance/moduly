@@ -17,13 +17,19 @@ export function PanelSidebarNav({ config, logoutAction }: PanelSidebarNavProps) 
 	const pathname = usePathname();
 
 	return (
-		<div className="flex flex-col">
-			{isSettingsPath(pathname, config.basePath) ? (
-				<SettingsSidebarNav config={config} />
-			) : (
-				<SidebarNav config={config} />
-			)}
-			<SidebarFooter storefrontUrl={config.branding.storefrontUrl} logoutAction={logoutAction} />
+		<div className="flex min-h-0 flex-1 flex-col">
+			<div className="min-h-0 flex-1">
+				{isSettingsPath(pathname, config.basePath) ? (
+					<SettingsSidebarNav config={config} />
+				) : (
+					<SidebarNav config={config} />
+				)}
+			</div>
+			<SidebarFooter
+				storefrontUrl={config.branding.storefrontUrl}
+				logoutAction={logoutAction}
+				className="mt-auto shrink-0"
+			/>
 		</div>
 	);
 }
