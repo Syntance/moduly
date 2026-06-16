@@ -10,12 +10,12 @@ import Link from "next/link";
 
 const TILES = [
   { href: "/magazyn/zamowienia", label: "Zamówienia", icon: <ShoppingBag className="size-5" />, badge: "12" },
+  { href: "/magazyn/zwroty", label: "Zwroty i reklamacje", icon: <RotateCcw className="size-5" />, badge: "2" },
   { href: "/magazyn/produkty", label: "Produkty", icon: <Package className="size-5" /> },
   { href: "/magazyn/kategorie", label: "Kategorie", icon: <Tags className="size-5" /> },
   { href: "/magazyn/cms", label: "CMS", icon: <FileText className="size-5" /> },
   { href: "/magazyn/maile", label: "E-maile", icon: <Mail className="size-5" /> },
   { href: "/magazyn/formularze", label: "Formularze", icon: <MessageSquare className="size-5" />, badge: "3" },
-  { href: "/magazyn/zwroty", label: "Zwroty i reklamacje", icon: <RotateCcw className="size-5" />, badge: "2" },
   { href: "/magazyn/statystyki", label: "Statystyki", icon: <BarChart3 className="size-5" /> },
   { href: "/magazyn/ustawienia", label: "Ustawienia sklepu", icon: <Settings className="size-5" /> },
 ];

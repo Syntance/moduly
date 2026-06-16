@@ -29,12 +29,12 @@ const MODULE_NAV: Record<
 
 const ORDER: Array<keyof Omit<ModulesToggle, "statistics">> = [
 	"orders",
+	"returns",
 	"products",
 	"categories",
 	"content",
 	"emails",
 	"forms",
-	"returns",
 	"settings",
 ];
 

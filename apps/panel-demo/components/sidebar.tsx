@@ -13,12 +13,12 @@ const NAV = [
   { href: "/magazyn", label: "Przegląd", icon: LayoutGrid, exact: true },
   { href: "/magazyn/statystyki", label: "Statystyki", icon: BarChart3 },
   { href: "/magazyn/zamowienia", label: "Zamówienia", icon: ShoppingBag },
+  { href: "/magazyn/zwroty", label: "Zwroty i reklamacje", icon: RotateCcw },
   { href: "/magazyn/produkty", label: "Produkty", icon: Package },
   { href: "/magazyn/kategorie", label: "Kategorie", icon: Tags },
   { href: "/magazyn/cms", label: "CMS", icon: FileText },
   { href: "/magazyn/maile", label: "E-maile", icon: Mail },
   { href: "/magazyn/formularze", label: "Formularze", icon: MessageSquare },
-  { href: "/magazyn/zwroty", label: "Zwroty i reklamacje", icon: RotateCcw },
   { href: "/magazyn/ustawienia", label: "Ustawienia sklepu", icon: Settings },
 ];
 
