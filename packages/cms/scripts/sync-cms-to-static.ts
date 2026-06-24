@@ -15,6 +15,10 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { normalizeCmsImageToWebp } from "@moduly/magazyn-core/storage/normalize-cms-image";
 import {
+	CMS_IMAGE_MAX_LONG_EDGE,
+	MOBILE_HERO_MAX_LONG_EDGE,
+} from "@moduly/magazyn-core/storage/cms-image-config";
+import {
 	assembleMetadataBlobFromDataStore,
 	fetchMedusaMetadataBlob,
 	getDataStore,
@@ -83,7 +87,7 @@ async function loadCmsBlob(): Promise<Record<string, unknown> | null> {
 	return parsed;
 }
 
-const IMAGE_EXT = /\.(jpe?g|png|webp|gif|avif)$/i;
+const IMAGE_EXT = /\.(jpe?g|png|webp|gif|avif|svg)$/i;
 
 function isRemoteImageUrl(value: string): boolean {
 	return /^https?:\/\//i.test(value) && IMAGE_EXT.test(value.split("?")[0] ?? "");
@@ -99,18 +103,44 @@ function collectRemoteImageUrls(node: unknown, acc: Set<string>): void {
 	}
 }
 
+function collectMobileHeroImageUrls(node: unknown, acc: Set<string>): void {
+	if (Array.isArray(node)) {
+		for (const item of node) collectMobileHeroImageUrls(item, acc);
+		return;
+	}
+	if (!node || typeof node !== "object") return;
+
+	const record = node as Record<string, unknown>;
+	const mobile = record.mobileImageUrl;
+	if (typeof mobile === "string" && isRemoteImageUrl(mobile)) {
+		acc.add(mobile);
+	}
+
+	for (const val of Object.values(record)) {
+		collectMobileHeroImageUrls(val, acc);
+	}
+}
+
 function localFilenameFor(url: string): string {
 	const hash = crypto.createHash("sha1").update(url).digest("hex").slice(0, 8);
 	let base = "asset";
 	try {
-		base = path.basename(new URL(url).pathname).replace(/\.[^.]+$/, "") || "asset";
+		base = path.basename(new URL(url).pathname) || "asset";
 	} catch {
 		/* keep default */
 	}
-	return `${hash}-${base}.webp`;
+	if (/\.svg$/i.test(base)) {
+		return `${hash}-${base}`;
+	}
+	const stem = base.replace(/\.[^.]+$/, "") || "asset";
+	return `${hash}-${stem}.webp`;
 }
 
-async function downloadImage(url: string, filename: string): Promise<boolean> {
+async function downloadImage(
+	url: string,
+	filename: string,
+	maxLongEdge?: number,
+): Promise<boolean> {
 	const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
 	if (!res.ok || !res.body) {
 		console.warn(`    ⚠ pominięto (HTTP ${res.status}): ${url}`);
@@ -122,8 +152,15 @@ async function downloadImage(url: string, filename: string): Promise<boolean> {
 		chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
 	}
 
-	const webp = await normalizeCmsImageToWebp(Buffer.concat(chunks));
+	const buffer = Buffer.concat(chunks);
 	const filepath = path.join(CMS_IMAGES_DIR, filename);
+
+	if (/\.svg$/i.test(filename)) {
+		fs.writeFileSync(filepath, buffer);
+		return true;
+	}
+
+	const webp = await normalizeCmsImageToWebp(buffer, maxLongEdge ?? CMS_IMAGE_MAX_LONG_EDGE);
 	fs.writeFileSync(filepath, webp);
 	return true;
 }
@@ -132,14 +169,25 @@ async function downloadAllImages(parsed: Record<string, unknown>): Promise<Map<s
 	const urls = new Set<string>();
 	collectRemoteImageUrls(parsed, urls);
 
+	const mobileHeroUrls = new Set<string>();
+	collectMobileHeroImageUrls(parsed, mobileHeroUrls);
+
 	console.log(`\n📦 Znaleziono ${urls.size} zdalnych obrazów CMS`);
+	if (mobileHeroUrls.size > 0) {
+		console.log(`   ↳ ${mobileHeroUrls.size} mobilnych hero (max ${MOBILE_HERO_MAX_LONG_EDGE}px)`);
+	}
+	console.log(`   ↳ pozostałe (max ${CMS_IMAGE_MAX_LONG_EDGE}px)`);
 	fs.mkdirSync(CMS_IMAGES_DIR, { recursive: true });
 
 	const urlMap = new Map<string, string>();
 	for (const url of urls) {
 		const filename = localFilenameFor(url);
-		console.log(`  → ${filename}`);
-		const ok = await downloadImage(url, filename);
+		const maxLongEdge = mobileHeroUrls.has(url)
+			? MOBILE_HERO_MAX_LONG_EDGE
+			: CMS_IMAGE_MAX_LONG_EDGE;
+		const label = mobileHeroUrls.has(url) ? " (mobile hero)" : "";
+		console.log(`  → ${filename}${label}`);
+		const ok = await downloadImage(url, filename, maxLongEdge);
 		if (ok) urlMap.set(url, `/images/cms/${filename}`);
 	}
 	return urlMap;

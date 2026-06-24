@@ -10,6 +10,7 @@
     "./hooks/use-prevent-window-file-drop": "./src/hooks/use-prevent-window-file-drop.ts",
     "./client": "./src/client.ts",
     "./storage/normalize-cms-image": "./src/storage/normalize-cms-image.ts",
+    "./storage/compress-cms-image": "./src/storage/compress-cms-image.ts",
     "./storage/cms-image-config": "./src/storage/cms-image-config.ts"
   },
   "scripts": {

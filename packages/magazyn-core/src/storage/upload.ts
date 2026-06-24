@@ -5,9 +5,7 @@ import { serverEnv, type R2Config } from "../env";
 import { serviceAdminUpload } from "../medusa/client";
 import { resolveMedusaMediaUrl } from "../medusa/media-url";
 import { prepareCmsUploadFile } from "./normalize-cms-image";
-
-/** Limit uploadów CMS — hero, OG, galeria (10 MB). */
-export const MAX_CMS_UPLOAD_BYTES = 10 * 1024 * 1024;
+import { MAX_CMS_UPLOAD_BYTES } from "./cms-image-config";
 
 const CMS_UPLOAD_PREFIX = "cms-uploads";
 
