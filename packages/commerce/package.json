@@ -7,11 +7,13 @@
     ".": "./src/index.ts",
     "./payments": "./src/payments/providers.ts",
     "./medusa/checkout": "./src/medusa/checkout.ts",
-    "./checkout/p24-popup": "./src/checkout/p24-popup.ts"
+    "./checkout/p24-popup": "./src/checkout/p24-popup.ts",
+    "./checkout/sanitize-order-notes": "./src/checkout/sanitize-order-notes.ts"
   },
   "scripts": {
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
@@ -23,7 +25,6 @@
     "zod": "^3.25.76"
   },
   "peerDependencies": {
-    "isomorphic-dompurify": ">=2.0.0",
     "lucide-react": ">=0.400.0",
     "next": ">=15.0.0",
     "react": "^19.0.0",
@@ -32,11 +33,11 @@
   "devDependencies": {
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
-    "isomorphic-dompurify": "^2.26.0",
     "lucide-react": "^0.511.0",
     "next": "^16.2.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
   }
 }

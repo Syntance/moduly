@@ -724,11 +724,57 @@ export async function initPaymentSession(
 	return response;
 }
 
+type ReusableSessionLike = {
+	provider_id?: string;
+	status?: string;
+	data?: { redirect_url?: string };
+};
+
+type CartWithSessions = {
+	payment_collection?: {
+		payment_sessions?: ReusableSessionLike[] | null;
+	} | null;
+};
+
+/**
+ * Aktywna sesja danej bramki z gotowym `redirect_url`, którą można reużyć.
+ * „pending" = transakcja zarejestrowana w bramce, klient jeszcze nie zapłacił.
+ * Reużycie chroni przed duplikatami transakcji przy reloadzie / wielokrotnym
+ * kliknięciu „Zamawiam i płacę" (potwierdzony incydent produkcyjny).
+ */
+export function findReusableRedirectUrl(
+	cart: CartWithSessions,
+	providerId: string,
+): string | null {
+	const sessions = cart.payment_collection?.payment_sessions ?? [];
+	for (const session of sessions) {
+		if (session.provider_id !== providerId) continue;
+		if (session.status && session.status !== "pending") continue;
+		const url = session.data?.redirect_url;
+		if (typeof url === "string" && url.trim()) return url;
+	}
+	return null;
+}
+
+/** Pola sesji płatności potrzebne do wykrycia reużywalnej sesji bramki. */
+export const PAYMENT_SESSION_FIELDS =
+	"id,email,payment_collection.id,payment_collection.payment_sessions.provider_id,payment_collection.payment_sessions.status,payment_collection.payment_sessions.data";
+
 export async function initPrzelewy24Redirect(
 	cartId: string,
 	freshCart?: HttpTypes.StoreCart,
 ): Promise<string> {
-	const cart = freshCart ?? (await medusa.store.cart.retrieve(cartId)).cart;
+	const cart =
+		freshCart ??
+		(await medusa.store.cart.retrieve(cartId, { fields: PAYMENT_SESSION_FIELDS }))
+			.cart;
+
+	// Idempotencja: reużyj istniejącej, nieopłaconej sesji P24 (ten sam URL
+	// bramki) zamiast rejestrować nową transakcję — bez tego każdy reload
+	// /start tworzył duplikat w panelu Przelewy24.
+	const reusable = findReusableRedirectUrl(cart, PRZELEWY24_PROVIDER_ID);
+	if (reusable) return reusable;
+
 	const response = (await medusa.store.payment.initiatePaymentSession(cart, {
 		provider_id: PRZELEWY24_PROVIDER_ID,
 		data: {

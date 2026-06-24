@@ -1,0 +1,66 @@
+---
+description: Playbook — jak zaimplementować utwardzony checkout w nowym sklepie kopiując z Syntance/moduly. Ładuj gdy stawiasz checkout od zera lub podpinasz nową bramkę.
+globs:
+  - "apps/*/app/**/checkout/**"
+  - "apps/backend/src/modules/**"
+---
+
+# Checkout Clone Playbook
+
+Cel: nowy sklep dostaje TEN SAM utwardzony checkout. Nie projektuj od zera — kopiuj z `Syntance/moduly` i podmień klucze/bramkę. Standard: `46-checkout-standards.mdc`.
+
+## Co skąd kopiować (źródło: `Syntance/moduly`)
+
+| Warstwa | Plik źródłowy | Cel |
+| --- | --- | --- |
+| Sanityzacja | `packages/commerce/src/checkout/sanitize-order-notes.ts` | strip HTML, bez dompurify |
+| Reuse sesji | `packages/commerce/src/medusa/checkout.ts` (`findReusable*RedirectUrl`) | idempotencja |
+| Formularz | `packages/commerce/src/components/checkout/CheckoutForm.tsx` | double-submit, slow-state, Turnstile gated |
+| Moduł bramki | `apps/backend/src/modules/<provider>/` | adapter (init/authorize/getPaymentStatus/webhook) |
+| Reconcile rdzeń | `apps/backend/src/lib/run-<provider>-reconcile.ts` | shared core |
+| Reconcile endpoint | `apps/backend/src/api/store/custom/reconcile-<provider>/route.ts` | siatka bezp. |
+| Maile | `apps/backend/src/lib/{internal-auth,order-email-dispatch}.ts` + `subscribers/order-placed.ts` | idempotentny mail |
+| Cron | `apps/*/app/api/cron/reconcile-payments/route.ts` + `vercel.json` | trigger niezależny od workera |
+| CSP | `apps/*/next.config.ts` | domeny bramek + Turnstile |
+
+## Kroki (AI: wykonaj w tej kolejności)
+
+1. Skopiuj `packages/commerce` (sanitize, reuse, CheckoutForm) — bez zmian logiki.
+2. Dla każdej bramki: skopiuj moduł `modules/<provider>`, podmień ENV providera, zarejestruj w `medusa-config.ts` za flagą `FEATURE_<PROVIDER>`.
+3. Dla każdej bramki: dodaj `run-<provider>-reconcile.ts`, endpoint `reconcile-<provider>`, scheduled job, wpis w cronie Vercel.
+4. Skopiuj pipeline maili (`internal-auth`, `order-email-dispatch`, subscriber `order-placed`, notify endpoints).
+5. Storefront: strony `<provider>/return` + `<provider>/retry`, instrukcja przelewu, `app/api/cron/reconcile-payments`, `app/api/internal/order-email`.
+6. Skonfiguruj CSP (`next.config`) + `vercel.json` (cron 15 min) + `.env.example`.
+7. Testy: e2e happy path + unit reuse/reconcile. `pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e`.
+
+## Manifest ENV (każdy sklep)
+
+```bash
+# Bramka (per provider, za flagą)
+FEATURE_PRZELEWY24=1
+P24_MERCHANT_ID=...
+P24_POS_ID=...
+P24_CRC=...
+P24_API_KEY=...
+# Anti-abuse (rate-limit zawsze)
+UPSTASH_REDIS_REST_URL=...
+UPSTASH_REDIS_REST_TOKEN=...
+# Reconcile / maile (TEN SAM sekret na backendzie i storefroncie)
+CRON_SECRET=...
+ORDER_EMAIL_INTERNAL_SECRET=...
+# Worker — MUSI być shared (server wyłącza scheduled jobs i subscribery)
+MEDUSA_WORKER_MODE=shared
+# CAPTCHA — opcjonalnie, domyślnie OFF
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=
+TURNSTILE_SECRET_KEY=
+```
+
+## Checklist deploy
+
+- [ ] `MEDUSA_WORKER_MODE=shared` na Railway (NIE `server` na 1 instancji)
+- [ ] Webhook URL w panelu bramki: `https://<backend>/hooks/payment/<provider_id>`
+- [ ] `ORDER_EMAIL_INTERNAL_SECRET` identyczny na backendzie i storefroncie (bez whitespace)
+- [ ] Cron Vercel `reconcile-payments` aktywny + cron przekazuje `x-publishable-api-key`
+- [ ] CSP zawiera domeny bramek + `challenges.cloudflare.com`
+- [ ] Sentry alerty: reconcile-recovered, webhook-sig-fail
+- [ ] Smoke sandbox: 1 płatność → webhook → order `captured`; reload `/start` = 1 transakcja; reconcile endpoint 200

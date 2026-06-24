@@ -166,3 +166,23 @@ export function captureError(err: unknown, context?: Record<string, unknown>): v
     Sentry.captureException(err);
   });
 }
+
+/**
+ * Distinct event (nie wyjątek) — do alertów operacyjnych typu „reconcile
+ * odzyskał zamówienie" (płatność cicho zginęła) albo „webhook signature fail".
+ * Dzięki osobnemu `message`/poziomowi nie giną w szumie błędów.
+ */
+export function captureMessage(
+  message: string,
+  level: "info" | "warning" | "error" = "warning",
+  context?: Record<string, unknown>,
+): void {
+  if (!initialized) return;
+  Sentry.withScope((scope) => {
+    scope.setLevel(level);
+    if (context) {
+      scope.setContext("moduly", redactDeep(context) as Record<string, unknown>);
+    }
+    Sentry.captureMessage(redactEmails(message));
+  });
+}

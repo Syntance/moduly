@@ -1,20 +1,24 @@
 ---
-description: Płatności — moduły, webhooki, maszyna stanów, idempotency
+description: Płatności — moduły, webhooki, maszyna stanów, idempotency, reconcile
 globs:
-  - "apps/backend/src/modules/payment-*/**"
-  - "apps/backend/src/api/webhooks/**"
+  - "apps/backend/src/modules/**"
+  - "apps/backend/src/api/store/custom/*reconcile*/**"
+  - "apps/backend/src/jobs/reconcile-*"
   - "apps/backend/src/workflows/payment-*/**"
 ---
 
+> Pełny standard checkoutu (5 torów domknięcia, kontrakt adaptera, security, compliance): `46-checkout-standards.mdc`. Kod referencyjny: `Syntance/moduly` (`apps/backend/src/modules/<provider>`).
+
 ## Kontrakt modułu
-Każdy provider = osobny Medusa module dziedziczący `AbstractPaymentProvider`. Folder: `src/modules/payment-<name>/`.
+Każdy provider = osobny Medusa module dziedziczący `AbstractPaymentProvider`. Folder = nazwa providera: `src/modules/<provider>/` (np. `przelewy24`, `tpay`, `stripe`). NIE prefiks `payment-`.
 
 ## MUST
-- Weryfikacja podpisu webhooka PRZED JAKĄKOLWIEK logiką (return 401 early). P24: `sign = md5(sessionId|orderId|amount|currency|crc)`. Stripe: `stripe.webhooks.constructEvent`.
-- Idempotent webhooki: tabela `webhook_events (event_id PK, provider, processed_at)` + `INSERT ON CONFLICT DO NOTHING`. Already-processed = 200 OK bez działania.
-- Pull status po redirect back: NIGDY nie ufaj query params z URL (`?status=success` można sfałszować). Wołaj `getPaymentStatus(data)`.
+- Weryfikacja podpisu webhooka PRZED JAKĄKOLWIEK logiką (return 401 early). Realizacja przez `getWebhookActionAndData` w module. P24: `sign = md5(sessionId|orderId|amount|currency|crc)`. Stripe: `stripe.webhooks.constructEvent`.
+- Idempotent webhooki: Medusa v2 `processPaymentWorkflow` ma WBUDOWANĄ deduplikację per `payment_session_id`. NIE twórz własnej tabeli `webhook_events`. NIE twórz custom `/api/webhooks/*` — Medusa routuje `/hooks/payment/<provider_id>`.
+- Pull status po redirect back: NIGDY nie ufaj query params z URL (`?status=success` można sfałszować). Wołaj `getPaymentStatus(data)` / `transaction/verify`.
+- Reuse pending sesji: `init<Provider>Redirect` najpierw szuka istniejącej sesji `pending` z `data.redirect_url` i ją reużywa zamiast rejestrować nową transakcję (łapie duplikaty przy reloadzie/wielokliku). Patrz `46-checkout-standards.mdc` §3.
 - Maszyna stanów: `Pending → Authorized → Captured → [Refunded | PartiallyRefunded]` + `Pending → Failed/Cancelled`. Asercja `assertTransition(prev, next)` w każdej zmianie.
-- Cron `retryPendingPayments` co 15 min pulluje status providera jako fallback gdy webhook zginie.
+- Self-healing reconcile (DWA tory, nie tylko cron): (1) scheduled job `jobs/reconcile-<provider>-payments.ts` co 10 min; (2) endpoint HTTP `POST /store/custom/reconcile-<provider>` (sekret `x-order-email-secret`) wołany przez cron Vercel — NIEZALEŻNY od `MEDUSA_WORKER_MODE`. Wspólny rdzeń `lib/run-<provider>-reconcile.ts` zwraca `recoveredOrderIds`; endpoint dispatchuje maile dla odzyskanych. Bez endpointu sieroty rosną gdy worker w trybie `server` (scheduled jobs nie chodzą).
 - Feature flag ENV (`FEATURE_PAYPO=1`). Brak flagi → provider nie zarejestrowany w `medusa-config.ts`.
 
 ## NEVER
@@ -27,8 +31,9 @@ Każdy provider = osobny Medusa module dziedziczący `AbstractPaymentProvider`. 
 
 ## Bugi które łapie
 - Atakujący wysyła fake webhook `status=success` → order „opłacony" bez wpłaty. Signature check blokuje.
-- Provider retryuje webhook 3× → 3 ordery z jednej płatności. Idempotency table blokuje.
-- P24 gubi webhook → order wisi `pending` na wieczność. Cron pulluje status co 15 min.
+- Provider retryuje webhook 3× → 3 ordery z jednej płatności. Wbudowana deduplikacja Medusa v2 (per `payment_session_id`) blokuje.
+- P24 gubi webhook → order wisi `pending` na wieczność. Scheduled job (10 min) + cron Vercel → endpoint reconcile (15 min) pullują status i domykają koszyk.
+- `MEDUSA_WORKER_MODE=server` na 1 instancji → scheduled job nie chodzi → sieroty rosną. Endpoint reconcile + cron Vercel działa niezależnie od trybu. Domyślnie `shared`.
 
 ## 3DS2 / SCA (Strong Customer Authentication — PSD2 EU)
 - **Obowiązkowe** dla każdej płatności > 30 EUR w EU. Bank może wymagać dla każdej wartości.

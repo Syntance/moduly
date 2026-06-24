@@ -1,13 +1,16 @@
 ---
-description: Checkout — schemat Zod, RHF, step state, complete flow
+description: Checkout — schemat Zod, RHF, step state, complete flow, double-submit
 globs:
-  - "apps/storefront/src/app/(shop)/checkout/**"
-  - "apps/storefront/src/components/checkout/**"
-  - "apps/storefront/src/lib/validation/checkout*.ts"
+  - "apps/*/app/**/checkout/**"
+  - "apps/*/components/checkout/**"
+  - "apps/*/lib/validation/checkout*.ts"
+  - "packages/commerce/**"
 ---
 
+> Twardy standard bezpieczeństwa/płatności: `46-checkout-standards.mdc`. Tu — warstwa formularza. Kod referencyjny: `Syntance/moduly` (`packages/commerce/src/components/checkout`).
+
 ## Kontrakt
-Jeden schemat Zod w `src/lib/validation/checkout.ts`, importowany po obu stronach (klient + API). NIGDY dwóch wersji.
+Jeden schemat Zod w `lib/validation/checkout.ts` (lub `packages/commerce`), importowany po obu stronach (klient + API). NIGDY dwóch wersji.
 
 ## MUST
 - `react-hook-form` + `zodResolver(checkoutSchema)`. `mode: 'onBlur'`, `reValidateMode: 'onChange'`.
@@ -15,16 +18,23 @@ Jeden schemat Zod w `src/lib/validation/checkout.ts`, importowany po obu stronac
 - `await trigger(['shipping_address', 'email'])` przed przejściem do następnego kroku.
 - Submit: 1× `cart.update()` z pełnym payloadem → `addShippingMethod()` → `initiatePaymentSession()` → redirect providera LUB `completeCart()` inline (Stripe).
 - Walidacja PL: kod pocztowy `/^\d{2}-\d{3}$/`, telefon `libphonenumber-js`, NIP 10 cyfr z checksum.
-- Loading state: `isSubmitting` (RHF) + po 3s tekst „Przetwarzamy zamówienie, nie zamykaj okna".
-- Po sukcesie: `router.replace('/checkout/potwierdzenie?order_id=' + id)` + `cart.reset()`.
+- Loading state: `isSubmitting` (RHF) + po 3s slow-state tekst „Przetwarzamy zamówienie, nie zamykaj okna".
+- Double-submit guard: `useRef` (NIE `useState` — re-render za wolny) sprawdzany na początku `handleSubmit`, plus `disabled` na przycisku. Łapie podwójny klik „Płać" → 2 płatności.
+- Order notes: sanityzuj przed wysyłką lekkim helperem `sanitize-order-notes.ts` (strip HTML regexem). NIGDY `isomorphic-dompurify` — ciągnie `jsdom` → SSR crash `ERR_REQUIRE_ESM` na Vercel/Next16/Turbopack. Backend re-sanityzuje.
+- Po sukcesie: `router.replace('/checkout/potwierdzenie?order_id=' + id)` + `cart.reset()` + guard na ponowny checkout tym samym koszykiem (back w przeglądarce).
 
 ## NEVER
 - Nie wymagaj konta. Guest checkout MUSI działać do końca.
 - Nie kopiuj `shipping_address` → `billing_address` jako default. `watch('billing_same')` + warunkowy render.
 - Nie rób `cart.update()` 3× osobno (email → address → phone). JEDEN update = atomowo.
 - Nie pokazuj błędów walidacji przed `onBlur` — frustruje usera.
-- Nie dodawaj captchy w checkoucie — zabija konwersję o 10-20%. Rate-limiting per IP wystarczy.
 - Nie używaj step-state jako `?step=2` — enum nazwany (address/delivery/payment) dla a11y i debugowania.
+
+## CAPTCHA — Turnstile za flagą (nie blokuj domyślnie)
+- Rate-limiting per IP (Upstash) jest ZAWSZE ON — pierwsza linia anti-abuse, zero kosztu konwersji.
+- Cloudflare Turnstile OPCJONALNY, gated `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, domyślnie OFF (captcha kosztuje 10-20% konwersji). Włącz dopiero przy realnym abuse.
+- Gdy ON: widget w kroku `payment` (nie wcześniej) + backend `/store/custom/verify-turnstile` (`AbortSignal.timeout(10s)`). NIGDY reCAPTCHA (Google tracking/GDPR/cookies) — Turnstile jest zero-cookie.
+- Szczegóły: `46-checkout-standards.mdc` §6.
 
 ## Bugi które łapie
 - 3 osobne updates → race w backendzie → address nadpisuje email. Jeden update = atomowo.

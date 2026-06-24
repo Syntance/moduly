@@ -4,6 +4,7 @@ import {
   MedusaError,
   PaymentActions,
 } from "@medusajs/framework/utils";
+import { captureMessage } from "../../lib/sentry";
 import type {
   AuthorizePaymentInput,
   AuthorizePaymentOutput,
@@ -501,6 +502,14 @@ export default class Przelewy24PaymentService extends AbstractPaymentProvider<Pr
     if (expectedSign !== receivedSign) {
       this.logger_.error(
         `[przelewy24] webhook: niezgodny podpis dla sessionId=${sessionId}`,
+      );
+      // Distinct alert: próba fałszerstwa webhooka lub błędna konfiguracja CRC.
+      // Nie ginie w szumie błędów — to sygnał bezpieczeństwa do natychmiastowego
+      // zbadania (patrz 46-checkout-standards §10).
+      captureMessage(
+        `[przelewy24] webhook signature fail (sessionId=${sessionId})`,
+        "warning",
+        { provider: "przelewy24", reason: "webhook_signature_mismatch" },
       );
       return { action: PaymentActions.FAILED };
     }
