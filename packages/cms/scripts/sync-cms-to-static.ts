@@ -12,8 +12,8 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
+import { normalizeCmsImageToWebp } from "@moduly/magazyn-core/storage/normalize-cms-image";
 import {
 	assembleMetadataBlobFromDataStore,
 	fetchMedusaMetadataBlob,
@@ -103,11 +103,11 @@ function localFilenameFor(url: string): string {
 	const hash = crypto.createHash("sha1").update(url).digest("hex").slice(0, 8);
 	let base = "asset";
 	try {
-		base = path.basename(new URL(url).pathname) || "asset";
+		base = path.basename(new URL(url).pathname).replace(/\.[^.]+$/, "") || "asset";
 	} catch {
 		/* keep default */
 	}
-	return `${hash}-${base}`;
+	return `${hash}-${base}.webp`;
 }
 
 async function downloadImage(url: string, filename: string): Promise<boolean> {
@@ -116,8 +116,15 @@ async function downloadImage(url: string, filename: string): Promise<boolean> {
 		console.warn(`    ⚠ pominięto (HTTP ${res.status}): ${url}`);
 		return false;
 	}
+
+	const chunks: Buffer[] = [];
+	for await (const chunk of Readable.fromWeb(res.body as never)) {
+		chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+	}
+
+	const webp = await normalizeCmsImageToWebp(Buffer.concat(chunks));
 	const filepath = path.join(CMS_IMAGES_DIR, filename);
-	await pipeline(Readable.fromWeb(res.body as never), fs.createWriteStream(filepath));
+	fs.writeFileSync(filepath, webp);
 	return true;
 }
 

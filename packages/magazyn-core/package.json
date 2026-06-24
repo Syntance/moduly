@@ -8,7 +8,9 @@
     "./config": "./src/configure.ts",
     "./hooks/use-file-drop-zone": "./src/hooks/use-file-drop-zone.ts",
     "./hooks/use-prevent-window-file-drop": "./src/hooks/use-prevent-window-file-drop.ts",
-    "./client": "./src/client.ts"
+    "./client": "./src/client.ts",
+    "./storage/normalize-cms-image": "./src/storage/normalize-cms-image.ts",
+    "./storage/cms-image-config": "./src/storage/cms-image-config.ts"
   },
   "scripts": {
     "lint": "eslint src",
@@ -23,6 +25,7 @@
     "@moduly/types": "workspace:*",
     "@moduly/ui": "workspace:*",
     "server-only": "^0.0.1",
+    "sharp": "^0.34.5",
     "zod": "^3.25.76"
   },
   "peerDependencies": {

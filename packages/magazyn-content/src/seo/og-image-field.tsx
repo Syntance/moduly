@@ -4,6 +4,7 @@ import { ImagePlus, Loader2, X } from "lucide-react";
 import Image from "next/image";
 import { useCallback, useId, useState } from "react";
 import { isCmsImageUnoptimized, resolveCmsAdminPreviewUrl } from "@moduly/magazyn-core/client";
+import { CMS_IMAGE_MAX_LONG_EDGE } from "@moduly/magazyn-core/storage/cms-image-config";
 import { uploadImagesAction } from "../content-actions";
 import { cn } from "@moduly/ui";
 import { isImageFile, useFileDropZone } from "@moduly/magazyn-core/hooks/use-file-drop-zone";
@@ -143,8 +144,8 @@ export function OgImageField({
 			<p className="text-xs text-muted-foreground">
 				{description ??
 					(batchMode
-						? "Możesz dodać wiele zdjęć naraz — przeciągnij na pole lub wybierz z dysku (WebP, JPG, PNG)."
-						: "Przeciągnij zdjęcie na pole lub wybierz plik. Zapisz formularz, potem Redeploy u góry panelu (~2–3 min na prod).")}
+						? `JPG/PNG konwertowane na WebP (max ${CMS_IMAGE_MAX_LONG_EDGE}px). Możesz dodać wiele zdjęć naraz — przeciągnij lub wybierz z dysku.`
+						: `JPG/PNG konwertowane na WebP (max ${CMS_IMAGE_MAX_LONG_EDGE}px). Zapisz formularz, potem Redeploy u góry panelu (~2–3 min na prod).`)}
 			</p>
 		</div>
 	);
