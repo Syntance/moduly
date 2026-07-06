@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { runAdd } from "./commands/add.js";
+import { runBlueprint } from "./commands/blueprint.js";
 import { runCreate } from "./commands/create.js";
 
 const program = new Command();
@@ -48,5 +49,44 @@ program
 			process.exit(1);
 		}
 	});
+
+program
+	.command("blueprint")
+	.description(
+		"Wgraj produkcyjnie utwardzony blueprint do projektu (np. checkout-p24, ADR 007)",
+	)
+	.argument("<name>", "nazwa blueprintu (katalog w blueprints/)")
+	.requiredOption("-t, --target <dir>", "katalog projektu docelowego")
+	.option("--backend-dir <dir>", "katalog aplikacji backendu", "apps/backend")
+	.option(
+		"--storefront-dir <dir>",
+		"katalog aplikacji storefrontu",
+		"apps/storefront",
+	)
+	.option("--force", "nadpisuj istniejące pliki")
+	.action(
+		async (
+			name: string,
+			opts: {
+				target: string;
+				backendDir: string;
+				storefrontDir: string;
+				force?: boolean;
+			},
+		) => {
+			try {
+				await runBlueprint({
+					blueprint: name,
+					target: opts.target,
+					backendDir: opts.backendDir,
+					storefrontDir: opts.storefrontDir,
+					force: opts.force,
+				});
+			} catch (error) {
+				console.error(error instanceof Error ? error.message : error);
+				process.exit(1);
+			}
+		},
+	);
 
 program.parse();
