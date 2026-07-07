@@ -17,7 +17,21 @@ export function initModuly(): void {
   initialized = true;
 
   configureMagazynModules(modulyConfig);
-  setDataStore(createPostgresStore());
+
+  /**
+   * Build bez sekretów (instalator moduly): `next build` zbiera page-data
+   * bez .env.local — twardy throw na brak DATABASE_URL wywalał build
+   * świeżo utworzonego projektu. Store podłączamy tylko gdy env jest;
+   * bez niego runtime dostanie czytelny błąd przy pierwszym użyciu.
+   */
+  const databaseUrl = process.env.DATABASE_URL?.trim();
+  if (databaseUrl) {
+    setDataStore(createPostgresStore(databaseUrl));
+  } else {
+    console.warn(
+      "[starter-strona] DATABASE_URL nie ustawione — DataStore nieaktywny (OK przy build; przed startem uzupełnij .env.local).",
+    );
+  }
 
   configureMagazynForms({
     basePath: `${modulyConfig.basePath}/panel`,

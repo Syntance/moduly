@@ -34,7 +34,9 @@ if (!existsSync(LUMINE)) {
 const REPLACERS = [
   [/@lumine\/types/g, "@/lib/shop-types"],
   [/@magazyn\/core\/lib\/format/g, "@/lib/money-format"],
-  [/@magazyn\/core\/medusa\/media-url/g, "@moduly/magazyn-core"],
+  // Subpath, NIE barrel: index magazyn-core ciągnie server-only (sharp),
+  // a product-thumbnail trafia do bundla klienta przez CartProvider.
+  [/@magazyn\/core\/medusa\/media-url/g, "@moduly/magazyn-core/medusa/media-url"],
   [/@\/magazyn\/modules\/promotions\/constants/g, "@/lib/promotions/constants"],
   [/@\/lib\/analytics\/useAnalytics/g, "@/lib/analytics/useAnalytics"],
   [/Lumine/g, "Moduly"],

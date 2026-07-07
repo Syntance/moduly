@@ -1,7 +1,7 @@
 {
   "name": "checkout-p24",
   "source": "lumineconcept (produkcja) â€” ADR 007",
-  "synced_at": "2026-07-07T08:16:55.913Z",
+  "synced_at": "2026-07-07T08:39:27.070Z",
   "install": {
     "backend": "skopiuj backend/* do apps/backend/ projektu (scal src/, tests/)",
     "storefront": "skopiuj storefront/* do apps/<storefront>/ projektu"

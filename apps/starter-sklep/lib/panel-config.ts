@@ -1,4 +1,4 @@
-﻿import type { PanelConfig } from "@moduly/ui";
+import type { PanelConfig } from "@moduly/ui";
 import { modulyConfig } from "@/moduly.config";
 
 /** Konfiguracja powĹ‚oki panelu magazynu dla @moduly/ui. */
