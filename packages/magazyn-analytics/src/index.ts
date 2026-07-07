@@ -18,3 +18,11 @@ export type {
 	PosthogAnalyticsSlice,
 } from "./types";
 export { default as AnalyticsStatisticsPage } from "./page";
+
+/* Realny dashboard Przegladu (parytet z produkcja) - dane sprzedazy z Medusy. */
+export { getSalesStatistics } from "./sales-store";
+export { getOverviewSalesPeriod, type SalesPeriod } from "./sales-period";
+export type { SalesStatistics } from "./sales-types";
+export { OverviewKpiSection } from "./overview/overview-kpi-section";
+export { OverviewDashboardCharts } from "./overview/overview-dashboard-charts";
+export { OverviewRecentOrders } from "./overview/overview-recent-orders";

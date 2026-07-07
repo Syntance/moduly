@@ -68,6 +68,7 @@ export {
 
 export {
 	formatDateTime,
+	formatChartAxisPrice,
 	formatPrice,
 	toMinorUnitsFromDecimal,
 	type FormatOptions,

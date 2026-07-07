@@ -23,4 +23,22 @@ export {
 	primaryPaymentProviderId,
 	isP24PaymentConfirmed,
 } from "./order-payment-provider";
-export type { AdminOrderRow, AdminOrderDetail, AdminOrdersOverviewSummary } from "./order-types";
+export type {
+	AdminOrderRow,
+	AdminOrderDetail,
+	AdminOrdersOverviewSummary,
+	OrderStatus,
+} from "./order-types";
+export {
+	BADGE_TONE_CLASS,
+	fulfillmentStatusBadge,
+	isMagazynActiveOrder,
+	orderStatusBadge,
+	paymentStatusBadge,
+} from "./order-status";
+export {
+	resolveCourierShippingGrossMinor,
+	resolveOrderTotalMinor,
+	resolveShippingDiscountMinor,
+	resolveShippingTotalMinor,
+} from "./order-totals";

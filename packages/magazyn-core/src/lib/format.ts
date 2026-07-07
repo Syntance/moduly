@@ -21,6 +21,24 @@ export function formatPrice(
 	}).format(minorAmount / 100);
 }
 
+/** Skrócona etykieta osi wykresu — wejście w groszach (integer). */
+export function formatChartAxisPrice(
+	minorAmount: number,
+	options: FormatOptions = {},
+): string {
+	const currency = (options.currency ?? defaultModulyConfig.commerce.currency).toUpperCase();
+	const locale = options.locale ?? defaultModulyConfig.commerce.locale;
+	const major = minorAmount / 100;
+	if (major >= 10_000) {
+		return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(major / 1000)} tys.`;
+	}
+	return new Intl.NumberFormat(locale, {
+		style: "currency",
+		currency,
+		maximumFractionDigits: 0,
+	}).format(major);
+}
+
 /**
  * Medusa v2 (store cart + admin order fields) zwraca PLN jako decimal (1 = 1 zł).
  * Magazyn / maile operują na groszach (integer).

@@ -3,11 +3,12 @@ import { adminFetch, serviceAdminFetch } from "@moduly/magazyn-core";
 import { getSessionToken } from "@moduly/magazyn-core";
 import { resolveMedusaMediaUrl } from "@moduly/magazyn-core";
 import { thumbnailFromMedusaProduct, resolveLineItemThumbnail } from "./lib/product-thumbnail";
+import { formatPrice, toMinorUnitsFromDecimal } from "@moduly/magazyn-core";
 import {
-	EXPRESS_FEE_SHIPPING_METHOD_NAME,
-	formatPrice,
-	toMinorUnitsFromDecimal,
-} from "@moduly/magazyn-core";
+	resolveCourierShippingGrossMinor,
+	resolveOrderTotalMinor,
+	resolveShippingDiscountMinor,
+} from "./order-totals";
 import { getModulyConfig } from "@moduly/magazyn-core/config";
 import { formatLineItemDetailsLines } from "./lib/format-line-item-for-email";
 import { expressFeeMinor, isExpressDelivery } from "./order-express";
@@ -150,99 +151,6 @@ function normalizeMetadata(metadata: Record<string, unknown> | null | undefined)
  */
 function toMinorUnits(amount: number | null | undefined): number {
 	return toMinorUnitsFromDecimal(amount);
-}
-
-function amountFromUnknown(v: unknown): number {
-	if (v === null || v === undefined) return 0;
-	if (typeof v === "number" && Number.isFinite(v)) return v;
-	if (typeof v === "string" && v.trim() !== "") {
-		const n = Number(v);
-		if (Number.isFinite(n)) return n;
-	}
-	if (typeof v === "object" && v !== null && "value" in v) {
-		return amountFromUnknown((v).value);
-	}
-	return 0;
-}
-
-/**
- * `shipping_total` bywa 0 mimo przypiętej metody dostawy — wtedy bierzemy
- * kwotę z `shipping_methods` albo różnicę total − produkty.
- */
-function resolveShippingTotal(order: MedusaOrder): number {
-	const header = amountFromUnknown(order.shipping_total);
-	if (header > 0) return toMinorUnits(header);
-
-	const fromMethods = (order.shipping_methods ?? []).reduce((sum, method) => {
-		const raw =
-			method.amount ??
-			method.total ??
-			method.subtotal ??
-			method.raw_amount;
-		return sum + amountFromUnknown(raw);
-	}, 0);
-	if (fromMethods > 0) return toMinorUnits(fromMethods);
-
-	if ((order.shipping_methods?.length ?? 0) > 0) {
-		const total = amountFromUnknown(order.total);
-		const itemTotal = amountFromUnknown(order.item_total);
-		const tax = amountFromUnknown(order.tax_total);
-		const discount = amountFromUnknown(order.discount_total);
-		const derived = total - itemTotal - tax + discount;
-		if (derived > 0) return toMinorUnits(derived);
-	}
-
-	return 0;
-}
-
-/**
- * Wiersz „Dostawa" w szczegółach zamówienia: SUROWA cena kuriera, bez
- * metody-dopłaty express i PRZED rabatami promocji.
- *
- * Parytet z produkcją (bug 06.07.2026): `shipping_total` jest PO
- * adjustmentach i ZAWIERA metodę-dopłatę — przy kodzie darmowej dostawy
- * pokazywało 2,50 (0 za kuriera + dopłata express), sugerując że dopłata
- * objęła dostawę. Konwencja: wiersze przed rabatem + osobny „Rabat".
- */
-function resolveCourierShippingGrossMinor(order: MedusaOrder): number {
-	const methods = order.shipping_methods ?? [];
-	const courierMethods = methods.filter(
-		(method) =>
-			((method.name ?? "").trim() || "") !== EXPRESS_FEE_SHIPPING_METHOD_NAME,
-	);
-	if (courierMethods.length > 0) {
-		const gross = courierMethods.reduce((sum, method) => {
-			const raw =
-				method.amount ?? method.subtotal ?? method.raw_amount ?? method.total;
-			return sum + amountFromUnknown(raw);
-		}, 0);
-		return toMinorUnits(gross);
-	}
-	return resolveShippingTotal(order);
-}
-
-/**
- * Część rabatu przypadająca na DOSTAWĘ: surowa cena kuriera − kurier PO
- * adjustmentach (shipping_methods.total). Kod darmowej dostawy → pełna cena
- * kuriera; UI pokazuje wtedy „Dostawa: gratis" zamiast wiersza rabatu.
- */
-function resolveShippingDiscountMinor(order: MedusaOrder): number {
-	const methods = order.shipping_methods ?? [];
-	const courierMethods = methods.filter(
-		(method) =>
-			((method.name ?? "").trim() || "") !== EXPRESS_FEE_SHIPPING_METHOD_NAME,
-	);
-	if (courierMethods.length === 0) return 0;
-	const gross = courierMethods.reduce((sum, method) => {
-		const raw =
-			method.amount ?? method.subtotal ?? method.raw_amount ?? method.total;
-		return sum + amountFromUnknown(raw);
-	}, 0);
-	const net = courierMethods.reduce(
-		(sum, method) => sum + amountFromUnknown(method.total),
-		0,
-	);
-	return Math.max(0, toMinorUnits(gross) - toMinorUnits(net));
 }
 
 const LIST_FIELDS = [
@@ -454,7 +362,9 @@ function mapMedusaOrderToDetail(
 		shippingDiscount: resolveShippingDiscountMinor(order),
 		taxTotal: toMinorUnits(order.tax_total),
 		discountTotal: toMinorUnits(order.discount_total),
-		total: toMinorUnits(order.total),
+		// Parytet z produkcją: kwota zgodna z opłaconą płatnością (captured),
+		// nie surowy nagłówek — Medusa bywa zwraca total bez kosztu wysyłki.
+		total: resolveOrderTotalMinor(order),
 		shippingAddress: mapAddress(order.shipping_address),
 		billingAddress: mapAddress(order.billing_address),
 		shippingMethodName: order.shipping_methods?.[0]?.name ?? null,

@@ -8,8 +8,13 @@ import type { PanelConfig } from "./types";
 
 export type OverviewPageProps = {
 	config: PanelConfig;
-	/** Ukryj demo KPI / wykresy (np. gdy dane z API). */
-	hideDemoAnalytics?: boolean;
+	/**
+	 * WYŁĄCZNIE dla panel-demo (screenshoty/briefy): pokazuje FIKCYJNE KPI,
+	 * wykresy, zamówienia i liczniki na kaflach. Domyślnie false — realne
+	 * aplikacje pokazują tylko kafle modułów albo własne `summary`
+	 * (sklep: komponenty Overview* z @moduly/magazyn-analytics).
+	 */
+	demo?: boolean;
 	/** Opcjonalna sekcja nad kafelkami (zastępuje domyślne KPI). */
 	summary?: ReactNode;
 };
@@ -17,7 +22,7 @@ export type OverviewPageProps = {
 /**
  * Pulpit panelu — układ 1:1 z moduly-demo: KPI, kafle modułów, wykres, ostatnie zamówienia.
  */
-export function OverviewPage({ config, hideDemoAnalytics = false, summary }: OverviewPageProps) {
+export function OverviewPage({ config, demo = false, summary }: OverviewPageProps) {
 	const panel = `${config.basePath}/panel`;
 	const tiles = buildNavItems(config).filter((item) => item.href !== panel);
 	const ordersPath = config.modules.orders ? `${panel}/zamowienia` : panel;
@@ -29,7 +34,7 @@ export function OverviewPage({ config, hideDemoAnalytics = false, summary }: Ove
 				<p className="mt-1 text-sm text-muted-foreground">Wybierz moduł, którym chcesz zarządzać.</p>
 			</header>
 
-			{summary ?? (hideDemoAnalytics ? null : (
+			{summary ?? (!demo ? null : (
 				<Section title="Podsumowanie (czerwiec 2026)">
 					<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 						<StatTile
@@ -67,13 +72,13 @@ export function OverviewPage({ config, hideDemoAnalytics = false, summary }: Ove
 							href={href}
 							label={label}
 							icon={<Icon className="size-5" aria-hidden />}
-							badge={moduleBadgeFromHref(href)}
+							badge={demo ? moduleBadgeFromHref(href) : undefined}
 						/>
 					))}
 				</div>
 			</Section>
 
-			{hideDemoAnalytics ? null : (
+			{!demo ? null : (
 				<>
 					<DashboardCharts />
 					{config.modules.orders ? (
