@@ -1,17 +1,17 @@
-/**
+﻿/**
  * Synchronizacja blueprintu checkout-p24 z produkcji (repo Lumine).
  *
- * Źródło prawdy: E:\Software development\lumineconcept (stan pancerny po
- * audycie 06.07.2026 — ADR 007). Uruchamiaj po każdej rundzie poprawek
+ * ĹąrĂłdĹ‚o prawdy: E:\Software development\lumineconcept (stan pancerny po
+ * audycie 06.07.2026 â€” ADR 007). Uruchamiaj po kaĹĽdej rundzie poprawek
  * checkoutu w Lumine, potem przejrzyj `git diff blueprints/`.
  *
- *   node scripts/sync-checkout-blueprint.mjs [--source <ścieżka-do-lumine>]
+ *   node scripts/sync-checkout-blueprint.mjs [--source <Ĺ›cieĹĽka-do-lumine>]
  *
- * Transformacje: rename brandu (lumine→moduly, także w nazwach plików),
- * mapowanie importów prywatnych Lumine na pliki lokalne blueprintu
+ * Transformacje: rename brandu (lumineâ†’moduly, takĹĽe w nazwach plikĂłw),
+ * mapowanie importĂłw prywatnych Lumine na pliki lokalne blueprintu
  * (shop-types, money-format, promotions/constants, stuby analytics).
- * Skrypt NIE nadpisuje plików spoza listy i kończy raportem nierozwiązanych
- * importów (to lista ręcznych poprawek — powinna być pusta).
+ * Skrypt NIE nadpisuje plikĂłw spoza listy i koĹ„czy raportem nierozwiÄ…zanych
+ * importĂłw (to lista rÄ™cznych poprawek â€” powinna byÄ‡ pusta).
  */
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -26,14 +26,15 @@ const LUMINE =
 const OUT = join(ROOT, "blueprints", "checkout-p24");
 
 if (!existsSync(LUMINE)) {
-  console.error(`Brak repo źródłowego: ${LUMINE}`);
+  console.error(`Brak repo ĹşrĂłdĹ‚owego: ${LUMINE}`);
   process.exit(1);
 }
 
-/** Kolejność MA znaczenie: ścieżki specyficzne przed generycznym rename brandu. */
+/** KolejnoĹ›Ä‡ MA znaczenie: Ĺ›cieĹĽki specyficzne przed generycznym rename brandu. */
 const REPLACERS = [
   [/@lumine\/types/g, "@/lib/shop-types"],
   [/@magazyn\/core\/lib\/format/g, "@/lib/money-format"],
+  [/@magazyn\/core\/medusa\/media-url/g, "@moduly/magazyn-core"],
   [/@\/magazyn\/modules\/promotions\/constants/g, "@/lib/promotions/constants"],
   [/@\/lib\/analytics\/useAnalytics/g, "@/lib/analytics/useAnalytics"],
   [/Lumine/g, "Moduly"],
@@ -53,6 +54,10 @@ const BACKEND = [
   "src/api/store/custom/reconcile-p24/route.ts",
   "src/api/store/custom/ensure-shipping/route.ts",
   "src/api/store/custom/ensure-payment/route.ts",
+  "src/api/store/custom/notify-bank-transfer/route.ts",
+  "src/api/store/custom/notify-order-placed/route.ts",
+  "src/api/store/custom/attach-order-notes/route.ts",
+  "src/subscribers/order-placed.ts",
   "src/lib/express-fee.ts",
   "src/lib/p24-session-reuse.ts",
   "src/lib/p24-transaction-api.ts",
@@ -175,10 +180,10 @@ function copyList(files, srcRoot, outRoot) {
 copyList(BACKEND, join(LUMINE, "apps", "backend"), join(OUT, "backend"));
 copyList(STOREFRONT, join(LUMINE, "apps", "storefront"), join(OUT, "storefront"));
 
-/* ---------- pliki generowane (zamienniki prywatnych zależności Lumine) ---------- */
+/* ---------- pliki generowane (zamienniki prywatnych zaleĹĽnoĹ›ci Lumine) ---------- */
 
 const GENERATED = {
-  "storefront/lib/shop-types.ts": `/** Minimalne typy współdzielone checkoutu (zamiennik @lumine/types). */
+  "storefront/lib/shop-types.ts": `/** Minimalne typy wspĂłĹ‚dzielone checkoutu (zamiennik @lumine/types). */
 export interface Address {
   first_name: string;
   last_name: string;
@@ -196,56 +201,78 @@ export function toMinorUnitsFromDecimal(amount: number | null | undefined): numb
   return Math.round(amount * 100);
 }
 `,
-  "storefront/lib/promotions/constants.ts": `/** Stałe promocji dostawy — parytet z magazynem (moduł promotions). */
+  "storefront/lib/promotions/constants.ts": `/** StaĹ‚e promocji dostawy â€” parytet z magazynem (moduĹ‚ promotions). */
 export const MODULY_FS_PREFIX = "__moduly_fs_";
 
 export function isShadowFreeShippingCode(code: string): boolean {
   return code.startsWith(MODULY_FS_PREFIX);
 }
 
-/** MUSI być identyczna ze stałą backendu (backend/src/lib/express-fee.ts). */
-export const EXPRESS_FEE_SHIPPING_METHOD_NAME = "Dopłata ekspresowa (+50%)";
+/** MUSI byÄ‡ identyczna ze staĹ‚Ä… backendu (backend/src/lib/express-fee.ts). */
+export const EXPRESS_FEE_SHIPPING_METHOD_NAME = "DopĹ‚ata ekspresowa (+50%)";
 `,
   "storefront/lib/analytics/useAnalytics.ts": `"use client";
 
 /**
- * STUB analytics — podmień na @moduly/analytics przy podpinaniu analityki.
+ * STUB analytics â€” podmieĹ„ na @moduly/analytics przy podpinaniu analityki.
  * API zgodne z produkcyjnym hookiem (track, identifyLead).
  */
 export function useAnalytics() {
   return {
     track: (_event: string, _payload?: Record<string, unknown>) => {},
-    identifyLead: (_email: string, _source?: string) => {},
+    identifyLead: (
+      _lead: { email: string; name?: string; source?: string },
+    ) => {},
   };
 }
 `,
-  "storefront/lib/analytics/destinations/posthog.ts": `/** STUB PostHog — podmień na @moduly/analytics. */
-export function getDistinctId(): string | null {
-  return null;
+  "storefront/lib/analytics/destinations/posthog.ts": `/** STUB PostHog â€” podmieĹ„ na @moduly/analytics. */
+export function getDistinctId(): string | undefined {
+  return undefined;
 }
-export function getSessionId(): string | null {
-  return null;
+export function getSessionId(): string | undefined {
+  return undefined;
 }
 `,
-  "storefront/lib/analytics/traffic-source.ts": `/** STUB traffic source — podmień na @moduly/analytics. */
+  "storefront/lib/analytics/traffic-source.ts": `/** STUB traffic source â€” podmieĹ„ na @moduly/analytics. */
 export function getTrafficSourceMetadata(): string | undefined {
   return undefined;
 }
 `,
-  "storefront/lib/analytics/track.ts": `/** STUB track — podmień na @moduly/analytics. */
+  "storefront/lib/analytics/track.ts": `/** STUB track â€” podmieĹ„ na @moduly/analytics. */
 export function track(_event: string, _payload?: Record<string, unknown>): void {}
 `,
-  "storefront/lib/analytics/upsell-attribution.ts": `/** STUB atrybucji upsell — podmień na @moduly/analytics. */
-export function consumeUpsellReferral(_productId: string): null {
+  "storefront/lib/analytics/upsell-attribution.ts": `/** STUB atrybucji upsell â€” podmieĹ„ na @moduly/analytics. */
+export type UpsellReferral = { fromProductId: string };
+
+export function consumeUpsellReferral(_productId: string): UpsellReferral | null {
   return null;
 }
 `,
-  "storefront/lib/analytics/events/registry.ts": `/** STUB typów eventów — podmień na @moduly/analytics-events. */
+  "backend/src/lib/meta-capi.ts": `/**
+ * STUB Meta Conversions API â€” podmieĹ„ na realnÄ… implementacjÄ™ przy
+ * podpinaniu analityki (@moduly/analytics). API zgodne z produkcjÄ….
+ */
+export const CAPI_PURCHASE_SENT_KEY = "capi_purchase_sent";
+
+export function purchaseEventId(orderId: string): string {
+  return \`purchase_\${orderId}\`;
+}
+
+export async function sendPurchaseCAPI(
+  _scope: unknown,
+  _order: unknown,
+  _options?: { fbp?: string; fbc?: string },
+): Promise<void> {
+  /* no-op â€” stub */
+}
+`,
+  "storefront/lib/analytics/events/registry.ts": `/** STUB typĂłw eventĂłw â€” podmieĹ„ na @moduly/analytics-events. */
 export type EcommerceItem = {
   item_id: string;
   item_name: string;
-  price?: number;
-  quantity?: number;
+  price: number;
+  quantity: number;
   [key: string]: unknown;
 };
 `,
@@ -262,7 +289,7 @@ for (const [rel, content] of Object.entries(GENERATED)) {
 
 const manifest = {
   name: "checkout-p24",
-  source: "lumineconcept (produkcja) — ADR 007",
+  source: "lumineconcept (produkcja) â€” ADR 007",
   synced_at: new Date().toISOString(),
   install: {
     backend: "skopiuj backend/* do apps/backend/ projektu (scal src/, tests/)",
@@ -270,7 +297,7 @@ const manifest = {
   },
   env: {
     PRZELEWY24_MERCHANT_ID: "ID merchanta P24 (= POS ID przy koncie prostym)",
-    PRZELEWY24_POS_ID: "POS ID (opcjonalne, domyślnie MERCHANT_ID)",
+    PRZELEWY24_POS_ID: "POS ID (opcjonalne, domyĹ›lnie MERCHANT_ID)",
     PRZELEWY24_CRC: "klucz CRC z panelu P24",
     PRZELEWY24_API_KEY: "klucz API (raporty/verify) z panelu P24",
     PRZELEWY24_SANDBOX: "true dla sandboxa",
@@ -279,18 +306,18 @@ const manifest = {
     UPSTASH_REDIS_REST_URL: "rate-limit prepare-checkout",
     UPSTASH_REDIS_REST_TOKEN: "rate-limit prepare-checkout",
     RECONCILE_CRON_SECRET: "Bearer dla /api/cron/reconcile-payments",
-    INTERNAL_EMAIL_SECRET: "wspólny sekret front↔back dla maili",
+    INTERNAL_EMAIL_SECRET: "wspĂłlny sekret frontâ†”back dla maili",
     MEDUSA_WORKER_MODE: "shared (joby reconcile!)",
     NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY: "publishable key sklepu",
     NEXT_PUBLIC_TURNSTILE_SITE_KEY: "(opcjonalnie) Turnstile",
     TURNSTILE_SECRET_KEY: "(opcjonalnie) Turnstile",
-    SENTRY_DSN: "(zalecane) alerty niezgodności kwot / cudzego koszyka",
+    SENTRY_DSN: "(zalecane) alerty niezgodnoĹ›ci kwot / cudzego koszyka",
   },
   files: copied.sort(),
 };
 writeFileSync(join(OUT, "MANIFEST.json"), JSON.stringify(manifest, null, 2));
 
-/* ---------- skan nierozwiązanych importów ---------- */
+/* ---------- skan nierozwiÄ…zanych importĂłw ---------- */
 
 function* walk(dir) {
   for (const entry of readdirSync(dir)) {
@@ -331,14 +358,14 @@ for (const file of walk(OUT)) {
   }
 }
 
-console.log(`Skopiowano ${copied.length} plików do blueprints/checkout-p24.`);
+console.log(`Skopiowano ${copied.length} plikĂłw do blueprints/checkout-p24.`);
 if (missing.length) {
-  console.log(`\nBRAK W ŹRÓDLE (${missing.length}):`);
+  console.log(`\nBRAK W ĹąRĂ“DLE (${missing.length}):`);
   for (const m of missing) console.log(`  - ${m}`);
 }
 if (unresolved.size) {
-  console.log(`\nNIEROZWIĄZANE IMPORTY (${unresolved.size}) — do ręcznej poprawki:`);
+  console.log(`\nNIEROZWIÄ„ZANE IMPORTY (${unresolved.size}) â€” do rÄ™cznej poprawki:`);
   for (const u of [...unresolved].sort()) console.log(`  - ${u}`);
 } else {
-  console.log("\nWszystkie importy rozwiązane wewnątrz blueprintu.");
+  console.log("\nWszystkie importy rozwiÄ…zane wewnÄ…trz blueprintu.");
 }

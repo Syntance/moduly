@@ -4,6 +4,10 @@ import {
   ORDER_NOTES_METADATA_KEY,
   sanitizeOrderNotes,
 } from "./order-notes";
+import {
+  buildAnalyticsConsentPatch,
+  type AnalyticsConsentInput,
+} from "./analytics-consent-metadata";
 
 export const PAYMENT_PROVIDER_METADATA_KEY = "payment_provider_id";
 
@@ -13,6 +17,10 @@ export async function persistCartCheckoutMetadata(
   input: {
     orderNotes?: string;
     paymentProviderId?: string;
+    companyName?: string;
+    nip?: string;
+    consent?: AnalyticsConsentInput;
+    trafficSource?: string;
   },
 ): Promise<void> {
   const patch: Record<string, string> = {};
@@ -22,6 +30,19 @@ export async function persistCartCheckoutMetadata(
 
   const providerId = input.paymentProviderId?.trim();
   if (providerId) patch[PAYMENT_PROVIDER_METADATA_KEY] = providerId;
+
+  const companyName = input.companyName?.trim();
+  if (companyName) patch["companyName"] = companyName;
+
+  const nip = input.nip?.trim();
+  if (nip) patch["nip"] = nip;
+
+  if (input.consent) {
+    Object.assign(patch, buildAnalyticsConsentPatch(input.consent));
+  }
+
+  const trafficSource = input.trafficSource?.trim();
+  if (trafficSource) patch["traffic_source"] = trafficSource;
 
   if (Object.keys(patch).length === 0) return;
 

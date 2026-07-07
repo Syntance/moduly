@@ -1,14 +1,14 @@
 {
   "name": "checkout-p24",
-  "source": "lumineconcept (produkcja) — ADR 007",
-  "synced_at": "2026-07-06T17:42:28.858Z",
+  "source": "lumineconcept (produkcja) â€” ADR 007",
+  "synced_at": "2026-07-07T08:16:55.913Z",
   "install": {
     "backend": "skopiuj backend/* do apps/backend/ projektu (scal src/, tests/)",
     "storefront": "skopiuj storefront/* do apps/<storefront>/ projektu"
   },
   "env": {
     "PRZELEWY24_MERCHANT_ID": "ID merchanta P24 (= POS ID przy koncie prostym)",
-    "PRZELEWY24_POS_ID": "POS ID (opcjonalne, domyślnie MERCHANT_ID)",
+    "PRZELEWY24_POS_ID": "POS ID (opcjonalne, domyĹ›lnie MERCHANT_ID)",
     "PRZELEWY24_CRC": "klucz CRC z panelu P24",
     "PRZELEWY24_API_KEY": "klucz API (raporty/verify) z panelu P24",
     "PRZELEWY24_SANDBOX": "true dla sandboxa",
@@ -17,12 +17,12 @@
     "UPSTASH_REDIS_REST_URL": "rate-limit prepare-checkout",
     "UPSTASH_REDIS_REST_TOKEN": "rate-limit prepare-checkout",
     "RECONCILE_CRON_SECRET": "Bearer dla /api/cron/reconcile-payments",
-    "INTERNAL_EMAIL_SECRET": "wspólny sekret front↔back dla maili",
+    "INTERNAL_EMAIL_SECRET": "wspĂłlny sekret frontâ†”back dla maili",
     "MEDUSA_WORKER_MODE": "shared (joby reconcile!)",
     "NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY": "publishable key sklepu",
     "NEXT_PUBLIC_TURNSTILE_SITE_KEY": "(opcjonalnie) Turnstile",
     "TURNSTILE_SECRET_KEY": "(opcjonalnie) Turnstile",
-    "SENTRY_DSN": "(zalecane) alerty niezgodności kwot / cudzego koszyka"
+    "SENTRY_DSN": "(zalecane) alerty niezgodnoĹ›ci kwot / cudzego koszyka"
   },
   "files": [
     "app/(shop)/checkout/p24/retry/page.tsx",
@@ -30,6 +30,7 @@
     "app/(shop)/checkout/przelewy24/return/page.tsx",
     "app/(shop)/checkout/przelewy24/start/page.tsx",
     "app/api/medusa/[...path]/route.ts",
+    "backend/src/lib/meta-capi.ts",
     "components/cart/CartConfiguratorDetails.tsx",
     "components/cart/CartSummary.tsx",
     "components/cart/ExpressToggle.tsx",
@@ -72,9 +73,12 @@
     "lib/utils.ts",
     "providers/CartProvider.tsx",
     "src/api/store/custom/apply-promo-code/route.ts",
+    "src/api/store/custom/attach-order-notes/route.ts",
     "src/api/store/custom/cart-express/route.ts",
     "src/api/store/custom/ensure-payment/route.ts",
     "src/api/store/custom/ensure-shipping/route.ts",
+    "src/api/store/custom/notify-bank-transfer/route.ts",
+    "src/api/store/custom/notify-order-placed/route.ts",
     "src/api/store/custom/p24-retry-payment/route.ts",
     "src/api/store/custom/p24-return-status/route.ts",
     "src/api/store/custom/prepare-checkout/route.ts",
@@ -111,6 +115,7 @@
     "src/lib/store-cart-snapshot.ts",
     "src/modules/przelewy24/index.ts",
     "src/modules/przelewy24/service.ts",
+    "src/subscribers/order-placed.ts",
     "storefront/lib/analytics/destinations/posthog.ts",
     "storefront/lib/analytics/events/registry.ts",
     "storefront/lib/analytics/track.ts",

@@ -12,7 +12,7 @@ export default async function run({ container }: ExecArgs) {
     console.log(`[setup-payment] ${msg}`);
   }
   console.log(
-    `[setup-payment] ok=${result.ok} updated=${result.updated_region_ids.length} providers=${result.provider_ids.join(", ")}`,
+    `[setup-payment] ok=${result.ok} updated=${result.updated_region_ids.length} provider=${result.provider_id}`,
   );
   if (!result.ok) {
     process.exitCode = 1;

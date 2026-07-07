@@ -105,7 +105,7 @@ export function initSentry(): void {
 
     beforeSend(event) {
       if (event.request?.data) {
-        event.request.data = redactDeep(event.request.data);
+        event.request.data = redactDeep(event.request.data) as typeof event.request.data;
       }
       if (event.request?.headers) {
         event.request.headers = redactDeep(event.request.headers) as typeof event.request.headers;
@@ -168,13 +168,14 @@ export function captureError(err: unknown, context?: Record<string, unknown>): v
 }
 
 /**
- * Distinct event (nie wyjątek) — do alertów operacyjnych typu „reconcile
- * odzyskał zamówienie" (płatność cicho zginęła) albo „webhook signature fail".
- * Dzięki osobnemu `message`/poziomowi nie giną w szumie błędów.
+ * Zgłoszenie zdarzenia operacyjnego BEZ wyjątku — np. "reconcile odratował
+ * sierotę" albo "webhook signature fail". To nie są crashe kodu, ale chcemy
+ * o nich wiedzieć (alert), bo sygnalizują że płatność prawie zginęła cicho
+ * albo ktoś podszywa się pod bramkę. Domyślny poziom: "warning".
  */
 export function captureMessage(
   message: string,
-  level: "info" | "warning" | "error" = "warning",
+  level: Sentry.SeverityLevel = "warning",
   context?: Record<string, unknown>,
 ): void {
   if (!initialized) return;

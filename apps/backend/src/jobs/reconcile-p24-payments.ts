@@ -6,11 +6,14 @@ import { runP24Reconcile, type ReconcileLogger } from "../lib/run-p24-reconcile"
  * Rekoncyliacja płatności Przelewy24 — siatka bezpieczeństwa na spóźnione
  * lub zgubione potwierdzenia (standard branżowy: webhook + cykliczny sweep).
  *
- * Głównym torem domknięcia koszyka pozostaje strona powrotu klienta i webhook
- * P24. Ten job łapie resztę. Cała logika żyje w `lib/run-p24-reconcile.ts`,
- * współdzielonym z endpointem HTTP (`/store/custom/reconcile-p24`), tak by ten
- * sam rdzeń działał niezależnie od `MEDUSA_WORKER_MODE` (w trybie `server`
- * scheduled jobs nie chodzą — wtedy domyka cron Vercel → endpoint).
+ * Główne tory domknięcia koszyka:
+ *  1. strona powrotu klienta (`/checkout/przelewy24/return` → completeCart),
+ *  2. webhook P24 (`urlStatus` → Medusa `processPaymentWorkflow`),
+ *  3. ten scheduled job (działa tylko w `MEDUSA_WORKER_MODE` shared/worker),
+ *  4. endpoint `/store/custom/reconcile-p24` wołany przez cron Vercel —
+ *     siatka bezpieczeństwa niezależna od trybu workera (patrz run-p24-reconcile).
+ *
+ * Logikę współdzieli `runP24Reconcile`.
  */
 export default async function reconcileP24PaymentsJob(container: MedusaContainer) {
   const logger = container.resolve("logger") as ReconcileLogger;

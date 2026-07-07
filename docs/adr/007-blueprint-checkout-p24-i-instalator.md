@@ -66,12 +66,13 @@ Ręczne scalanie przy każdej poprawce w Lumine nie skaluje się.
 - (+) Nowy sklep dostaje od pierwszego dnia checkout o niezawodności
   zweryfikowanej realnym pieniądzem i suitą chaos e2e.
 - (+) Poprawki produkcyjne przenoszą się jednym skryptem, diff jest jawny.
-- (−) Do czasu migracji startera istnieją dwie kopie checkoutu w repo
-  (starter — stara, blueprint — kanoniczna). Mitygacja: README startera
-  wskazuje blueprint jako kanon; migracja = zadanie fazy 2.
-- (−) Blueprint nie jest kompilowany w CI monorepo (to szablony poza
-  workspace). Mitygacja: `scripts/verify-blueprint.mjs` (faza 3) instaluje
-  blueprint do tymczasowej kopii startera i odpala `tsc`.
+- (+) ZROBIONE (faza 2b): starter-sklep ZMIGROWANY na blueprint — stare
+  komponenty checkoutu usunięte, blueprint wgrany do apps/backend i
+  apps/starter-sklep (idempotentnie), stary provider koszyka (drawer/PDP)
+  współistnieje z blueprintowym na wspólnym `moduly_cart_id`.
+- (+) ZROBIONE (faza 3): `scripts/verify-blueprint.mjs` — wgrywa blueprint
+  do starterów i odpala `tsc` obu aplikacji; zielony przebieg = blueprint
+  instalowalny. Odpalaj w CI po zmianach w blueprints/ lub starterach.
 
 ## Wymagane ENV (manifest skrócony)
 

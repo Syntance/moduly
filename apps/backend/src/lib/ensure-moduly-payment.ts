@@ -1,35 +1,27 @@
 import type { MedusaContainer } from "@medusajs/framework/types";
 import { updateRegionsWorkflow } from "@medusajs/medusa/core-flows";
 
+/**
+ * Payment provider, który rejestrowany jest automatycznie przez moduł
+ * `@medusajs/medusa/payment` (patrz [medusa-config.ts](../../medusa-config.ts)).
+ *
+ * Identifier `system`, id configu `default` → klucz w kontenerze to
+ * `pp_system_default` (logika w `@medusajs/payment/dist/loaders/providers.js`).
+ */
 const SYSTEM_PAYMENT_PROVIDER_ID = "pp_system_default";
+/** Pełny id providera P24 w Medusie: `pp_{provider.id}_{service.identifier}`. */
 const PRZELEWY24_PROVIDER_ID = "pp_przelewy24_przelewy24";
-const STRIPE_PROVIDER_ID = "pp_stripe_stripe";
-const TPAY_PROVIDER_ID = "pp_tpay_tpay";
 
+/**
+ * Providery, które powinny być podpięte do każdego regionu. Bazowo systemowy
+ * (tryb testowy); Przelewy24 dokładamy tylko, gdy moduł jest skonfigurowany
+ * (te same envy, które rejestrują provider w `medusa-config.ts`).
+ */
 function getDesiredProviderIds(): string[] {
   const ids = [SYSTEM_PAYMENT_PROVIDER_ID];
-
-  if (
-    process.env.FEATURE_P24 === "1" &&
-    process.env.PRZELEWY24_MERCHANT_ID &&
-    process.env.PRZELEWY24_API_KEY
-  ) {
+  if (process.env.PRZELEWY24_MERCHANT_ID && process.env.PRZELEWY24_API_KEY) {
     ids.push(PRZELEWY24_PROVIDER_ID);
   }
-
-  if (process.env.FEATURE_STRIPE === "1" && process.env.STRIPE_API_KEY) {
-    ids.push(STRIPE_PROVIDER_ID);
-  }
-
-  if (
-    process.env.FEATURE_TPAY === "1" &&
-    process.env.TPAY_MERCHANT_ID &&
-    process.env.TPAY_API_PASSWORD &&
-    process.env.TPAY_SECURITY_CODE
-  ) {
-    ids.push(TPAY_PROVIDER_ID);
-  }
-
   return ids;
 }
 
@@ -37,15 +29,21 @@ export interface EnsureModulyPaymentResult {
   ok: boolean;
   messages: string[];
   updated_region_ids: string[];
-  provider_ids: string[];
+  provider_id: string;
 }
 
 type RegionRow = {
   id: string;
   name?: string | null;
+  countries?: Array<{ iso_2?: string }> | null;
   payment_providers?: Array<{ id?: string }> | null;
 };
 
+/**
+ * Idempotentnie dokłada systemowego (manual) payment-providera do każdego
+ * regionu, który go jeszcze nie ma. Bez tego `initiatePaymentSession` /
+ * `cart.complete` z tym providerem zwraca „An unknown error occurred".
+ */
 export async function ensureModulyPayment(
   container: MedusaContainer,
 ): Promise<EnsureModulyPaymentResult> {
@@ -62,19 +60,24 @@ export async function ensureModulyPayment(
 
   const { data: regions } = await query.graph({
     entity: "region",
-    fields: ["id", "name", "payment_providers.id"],
+    fields: [
+      "id",
+      "name",
+      "countries.iso_2",
+      "payment_providers.id",
+    ],
   });
-
-  const desiredIds = getDesiredProviderIds();
 
   if (regions.length === 0) {
     return {
       ok: false,
       messages: ["Brak regionów — utwórz region (np. Polska) w Admin."],
       updated_region_ids: [],
-      provider_ids: desiredIds,
+      provider_id: SYSTEM_PAYMENT_PROVIDER_ID,
     };
   }
+
+  const desiredIds = getDesiredProviderIds();
 
   for (const region of regions) {
     const currentIds = (region.payment_providers ?? [])
@@ -85,7 +88,7 @@ export async function ensureModulyPayment(
 
     if (missing.length === 0) {
       messages.push(
-        `Region „${region.name ?? region.id}" ma już providery (${desiredIds.join(", ")}) — pomijam.`,
+        `Region „${region.name ?? region.id}" ma już wszystkie providery (${desiredIds.join(", ")}) — pomijam.`,
       );
       continue;
     }
@@ -111,13 +114,6 @@ export async function ensureModulyPayment(
     ok: true,
     messages,
     updated_region_ids: updated,
-    provider_ids: desiredIds,
+    provider_id: SYSTEM_PAYMENT_PROVIDER_ID,
   };
 }
-
-export {
-  SYSTEM_PAYMENT_PROVIDER_ID,
-  PRZELEWY24_PROVIDER_ID,
-  STRIPE_PROVIDER_ID,
-  TPAY_PROVIDER_ID,
-};

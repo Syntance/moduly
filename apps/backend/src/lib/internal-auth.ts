@@ -7,9 +7,8 @@ function trimEnv(value: string | undefined): string | undefined {
 
 /**
  * Wspólny sekret server-to-server dla wewnętrznych endpointów Medusy
- * (reconcile-*, notify-*). Ten sam sekret, którego cron Vercel używa wołając
- * `/store/custom/reconcile-*`, a backend wołając storefrontowe
- * `/api/internal/order-email`.
+ * (notify-*, order-email). Ten sam sekret, którego backend używa do wołania
+ * storefrontowego `/api/internal/order-email` (patrz `order-email-dispatch.ts`).
  */
 export function internalSecret(): string | undefined {
   return (
@@ -38,7 +37,7 @@ function safeEqual(a: string, b: string): boolean {
  * Weryfikuje nagłówek `x-order-email-secret` względem skonfigurowanego sekretu.
  *
  * Fail-closed: gdy sekret nie jest ustawiony w środowisku, zwraca `false`
- * (endpoint nie powinien być dostępny bez konfiguracji).
+ * (endpoint nie powinien być publicznie dostępny bez konfiguracji).
  */
 export function hasValidInternalSecret(req: MedusaRequest): boolean {
   const expected = internalSecret();
