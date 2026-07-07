@@ -3,7 +3,11 @@ import { adminFetch, serviceAdminFetch } from "@moduly/magazyn-core";
 import { getSessionToken } from "@moduly/magazyn-core";
 import { resolveMedusaMediaUrl } from "@moduly/magazyn-core";
 import { thumbnailFromMedusaProduct, resolveLineItemThumbnail } from "./lib/product-thumbnail";
-import { formatPrice, toMinorUnitsFromDecimal } from "@moduly/magazyn-core";
+import {
+	EXPRESS_FEE_SHIPPING_METHOD_NAME,
+	formatPrice,
+	toMinorUnitsFromDecimal,
+} from "@moduly/magazyn-core";
 import { getModulyConfig } from "@moduly/magazyn-core/config";
 import { formatLineItemDetailsLines } from "./lib/format-line-item-for-email";
 import { expressFeeMinor, isExpressDelivery } from "./order-express";
@@ -189,6 +193,56 @@ function resolveShippingTotal(order: MedusaOrder): number {
 	}
 
 	return 0;
+}
+
+/**
+ * Wiersz „Dostawa" w szczegółach zamówienia: SUROWA cena kuriera, bez
+ * metody-dopłaty express i PRZED rabatami promocji.
+ *
+ * Parytet z produkcją (bug 06.07.2026): `shipping_total` jest PO
+ * adjustmentach i ZAWIERA metodę-dopłatę — przy kodzie darmowej dostawy
+ * pokazywało 2,50 (0 za kuriera + dopłata express), sugerując że dopłata
+ * objęła dostawę. Konwencja: wiersze przed rabatem + osobny „Rabat".
+ */
+function resolveCourierShippingGrossMinor(order: MedusaOrder): number {
+	const methods = order.shipping_methods ?? [];
+	const courierMethods = methods.filter(
+		(method) =>
+			((method.name ?? "").trim() || "") !== EXPRESS_FEE_SHIPPING_METHOD_NAME,
+	);
+	if (courierMethods.length > 0) {
+		const gross = courierMethods.reduce((sum, method) => {
+			const raw =
+				method.amount ?? method.subtotal ?? method.raw_amount ?? method.total;
+			return sum + amountFromUnknown(raw);
+		}, 0);
+		return toMinorUnits(gross);
+	}
+	return resolveShippingTotal(order);
+}
+
+/**
+ * Część rabatu przypadająca na DOSTAWĘ: surowa cena kuriera − kurier PO
+ * adjustmentach (shipping_methods.total). Kod darmowej dostawy → pełna cena
+ * kuriera; UI pokazuje wtedy „Dostawa: gratis" zamiast wiersza rabatu.
+ */
+function resolveShippingDiscountMinor(order: MedusaOrder): number {
+	const methods = order.shipping_methods ?? [];
+	const courierMethods = methods.filter(
+		(method) =>
+			((method.name ?? "").trim() || "") !== EXPRESS_FEE_SHIPPING_METHOD_NAME,
+	);
+	if (courierMethods.length === 0) return 0;
+	const gross = courierMethods.reduce((sum, method) => {
+		const raw =
+			method.amount ?? method.subtotal ?? method.raw_amount ?? method.total;
+		return sum + amountFromUnknown(raw);
+	}, 0);
+	const net = courierMethods.reduce(
+		(sum, method) => sum + amountFromUnknown(method.total),
+		0,
+	);
+	return Math.max(0, toMinorUnits(gross) - toMinorUnits(net));
 }
 
 const LIST_FIELDS = [
@@ -394,7 +448,10 @@ function mapMedusaOrderToDetail(
 			metadata: normalizeMetadata(item.metadata),
 		})),
 		itemTotal: toMinorUnits(order.item_total),
-		shippingTotal: resolveShippingTotal(order),
+		// Wiersz „Dostawa": surowa cena kuriera bez metody-dopłaty express i
+		// przed rabatami (parytet z produkcją, bug 06.07.2026).
+		shippingTotal: resolveCourierShippingGrossMinor(order),
+		shippingDiscount: resolveShippingDiscountMinor(order),
 		taxTotal: toMinorUnits(order.tax_total),
 		discountTotal: toMinorUnits(order.discount_total),
 		total: toMinorUnits(order.total),

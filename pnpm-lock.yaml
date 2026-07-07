@@ -239,6 +239,9 @@ importers:
       '@moduly/magazyn-products':
         specifier: workspace:*
         version: link:../../packages/magazyn-products
+      '@moduly/magazyn-promotions':
+        specifier: workspace:*
+        version: link:../../packages/magazyn-promotions
       '@moduly/magazyn-returns':
         specifier: workspace:*
         version: link:../../packages/magazyn-returns
@@ -610,6 +613,9 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.6(@types/node@22.19.21)(jiti@2.7.0)(jsdom@28.1.0)(lightningcss@1.32.0)(tsx@4.22.4)
 
   packages/config:
     dependencies:
@@ -806,6 +812,9 @@ importers:
   packages/magazyn-core:
     dependencies:
       '@aws-sdk/client-s3':
+        specifier: ^3.940.0
+        version: 3.1068.0
+      '@aws-sdk/s3-request-presigner':
         specifier: ^3.940.0
         version: 3.1068.0
       '@moduly/auth-core':
@@ -1013,6 +1022,40 @@ importers:
       '@moduly/types':
         specifier: workspace:*
         version: link:../types
+      '@moduly/ui':
+        specifier: workspace:*
+        version: link:../ui
+      lucide-react:
+        specifier: ^0.511.0
+        version: 0.511.0(react@19.2.7)
+      next:
+        specifier: ^16.2.4
+        version: 16.2.9(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.61.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      react:
+        specifier: ^19.2.0
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.7(react@19.2.7)
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.7
+        version: 19.2.17
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  packages/magazyn-promotions:
+    dependencies:
+      '@moduly/config':
+        specifier: workspace:*
+        version: link:../config
+      '@moduly/magazyn-core':
+        specifier: workspace:*
+        version: link:../magazyn-core
       '@moduly/ui':
         specifier: workspace:*
         version: link:../ui

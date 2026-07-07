@@ -1,7 +1,7 @@
-import type { PanelConfig } from "@moduly/ui";
+﻿import type { PanelConfig } from "@moduly/ui";
 import { modulyConfig } from "@/moduly.config";
 
-/** Konfiguracja powłoki panelu magazynu dla @moduly/ui. */
+/** Konfiguracja powĹ‚oki panelu magazynu dla @moduly/ui. */
 export function getPanelConfig(): PanelConfig {
 	const cfg = modulyConfig;
 	return {
@@ -11,6 +11,7 @@ export function getPanelConfig(): PanelConfig {
 			orders: cfg.modules.orders,
 			products: cfg.modules.products,
 			categories: cfg.modules.categories,
+			promotions: cfg.modules.promotions ?? true,
 			content: cfg.modules.content,
 			emails: cfg.modules.emails,
 			settings: cfg.modules.settings,

@@ -1,4 +1,4 @@
-import {
+﻿import {
 	PRZELEWY24_PROVIDER_ID,
 	STRIPE_PROVIDER_ID,
 	SYSTEM_PAYMENT_PROVIDER_ID,
@@ -7,10 +7,10 @@ import {
 import { defaultModulyConfig, type ModulyConfig } from "@moduly/config";
 
 /**
- * Konfiguracja instancji Moduly — edytuj pod nowy sklep.
+ * Konfiguracja instancji Moduly â€” edytuj pod nowy sklep.
  * Sekrety trzymaj w `.env.local` (patrz `.env.example`).
  *
- * Bez importów server-only — bezpieczne dla middleware (Edge).
+ * Bez importĂłw server-only â€” bezpieczne dla middleware (Edge).
  */
 export const modulyConfig: ModulyConfig = {
 	...defaultModulyConfig,
@@ -32,6 +32,7 @@ export const modulyConfig: ModulyConfig = {
 		orders: true,
 		products: true,
 		categories: true,
+		promotions: true,
 		content: true,
 		emails: true,
 		settings: true,
@@ -43,7 +44,7 @@ export const modulyConfig: ModulyConfig = {
 		pages: [
 			{
 				id: "home",
-				label: "Strona główna",
+				label: "Strona gĹ‚Ăłwna",
 				path: "/",
 				blocks: ["hero", "categoryTiles", "testimonials", "faq"],
 			},
@@ -81,10 +82,10 @@ export const modulyConfig: ModulyConfig = {
 			recipientName: "Moduly Sklep Sp. z o.o.",
 			iban: process.env.BANK_TRANSFER_IBAN ?? "PL00000000000000000000000000",
 			swift: process.env.BANK_TRANSFER_SWIFT ?? "EXAMPLEPL",
-			addressLine1: "ul. Przykładowa 1",
+			addressLine1: "ul. PrzykĹ‚adowa 1",
 			addressLine2: "00-001 Warszawa",
 			paymentDays: 7,
-			transferTitlePrefix: "Zamówienie",
+			transferTitlePrefix: "ZamĂłwienie",
 		},
 	},
 
@@ -97,7 +98,7 @@ export const modulyConfig: ModulyConfig = {
 	email: {
 		fromName: "Moduly Sklep",
 		contactEmail: process.env.MODULY_CONTACT_EMAIL ?? "kontakt@example.com",
-		footerText: "Moduly Sklep · Wszystkie prawa zastrzeżone",
+		footerText: "Moduly Sklep Â· Wszystkie prawa zastrzeĹĽone",
 		siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
 	},
 

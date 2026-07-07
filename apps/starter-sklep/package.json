@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "@moduly/starter-sklep",
   "version": "0.1.0",
   "private": true,
@@ -28,6 +28,7 @@
     "@moduly/magazyn-forms": "workspace:*",
     "@moduly/magazyn-orders": "workspace:*",
     "@moduly/magazyn-products": "workspace:*",
+		"@moduly/magazyn-promotions": "workspace:*",
     "@moduly/magazyn-returns": "workspace:*",
     "@moduly/magazyn-settings": "workspace:*",
     "@moduly/payments": "workspace:*",
