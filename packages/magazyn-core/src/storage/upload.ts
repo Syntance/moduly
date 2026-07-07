@@ -4,9 +4,8 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { serverEnv, type R2Config } from "../env";
 import { serviceAdminUpload } from "../medusa/client";
 import { resolveMedusaMediaUrl } from "../medusa/media-url";
-
-/** Limit uploadów CMS — hero, OG, galeria (10 MB). */
-export const MAX_CMS_UPLOAD_BYTES = 10 * 1024 * 1024;
+import { prepareCmsUploadFile } from "./normalize-cms-image";
+import { MAX_CMS_UPLOAD_BYTES } from "./cms-image-config";
 
 const CMS_UPLOAD_PREFIX = "cms-uploads";
 
@@ -135,18 +134,20 @@ async function uploadViaMedusa(file: File): Promise<CmsUploadResult> {
 	};
 }
 
-/** Assety CMS (hero, galeria, OG) — R2 z timeoutem; fallback Medusa gdy R2 niedostępne. */
+/** Assety CMS (hero, galeria, OG) — normalizacja WebP, R2 z timeoutem; fallback Medusa. */
 export async function uploadCmsAssetFile(file: File): Promise<CmsUploadResult> {
 	const validationError = validateCmsUploadFile(file);
 	if (validationError) throw new Error(validationError);
 
+	const prepared = await prepareCmsUploadFile(file);
+
 	const r2 = serverEnv.r2Config;
 	if (r2) {
 		try {
-			return await uploadViaR2(file, r2, CMS_UPLOAD_PREFIX, LARGE_R2_UPLOAD_TIMEOUT_MS);
+			return await uploadViaR2(prepared, r2, CMS_UPLOAD_PREFIX, LARGE_R2_UPLOAD_TIMEOUT_MS);
 		} catch (error) {
 			try {
-				return await uploadViaMedusa(file);
+				return await uploadViaMedusa(prepared);
 			} catch {
 				if (error instanceof Error && error.message === "R2_UPLOAD_TIMEOUT") {
 					throw new Error(
@@ -158,5 +159,5 @@ export async function uploadCmsAssetFile(file: File): Promise<CmsUploadResult> {
 		}
 	}
 
-	return uploadViaMedusa(file);
+	return uploadViaMedusa(prepared);
 }

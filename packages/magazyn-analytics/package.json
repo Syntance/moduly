@@ -15,6 +15,7 @@
     "@google-analytics/data": "^5.2.1",
     "@moduly/config": "workspace:*",
     "@moduly/magazyn-core": "workspace:*",
+    "@moduly/magazyn-orders": "workspace:*",
     "@moduly/ui": "workspace:*",
     "lucide-react": "^0.511.0",
     "recharts": "^2.15.4",

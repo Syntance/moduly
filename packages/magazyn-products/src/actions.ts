@@ -14,6 +14,7 @@ import {
 	resolveMedusaMediaUrls,
 	slugify,
 	uploadCmsAssetFile,
+	prepareCmsUploadFile,
 } from "@moduly/magazyn-core";
 import {
 	createAdminProduct,
@@ -186,7 +187,8 @@ export async function uploadImagesAction(formData: FormData): Promise<UploadStat
 				urls.push(result.url);
 			} catch (inner) {
 				if (inner instanceof Error && inner.message === "MEDUSA_UPLOAD_UNAVAILABLE") {
-					const fallback = resolveMedusaMediaUrls(await adminUpload([file]));
+					const prepared = await prepareCmsUploadFile(file);
+					const fallback = resolveMedusaMediaUrls(await adminUpload([prepared]));
 					if (fallback[0]) urls.push(fallback[0]);
 					continue;
 				}

@@ -36,6 +36,8 @@ export type ModulesToggle = {
 	settings: boolean;
 	forms: boolean;
 	returns: boolean;
+	/** Kody promocyjne (rabaty + darmowa dostawa) — domyślnie włączone w sklepie. */
+	promotions?: boolean;
 };
 
 /** Blok treści CMS przypisany do podstrony lub sekcji globalnej. */
@@ -124,6 +126,14 @@ export type CommerceConfig = {
 	locale: string;
 };
 
+/** Upload mediów panelu — ścieżki Route Handlerów (montuj re-export w `app/api/…`). */
+export type StorageConfig = {
+	/** POST multipart — domyślnie `/api/magazyn/cms-upload`. */
+	cmsUploadApiPath?: string;
+	/** POST presigned PUT do R2 — domyślnie `{cmsUploadApiPath}/presign`. */
+	cmsUploadPresignApiPath?: string;
+};
+
 /**
  * Główna konfiguracja instancji Moduly.
  * Jeden plik `moduly.config.ts` w aplikacji steruje panelem, CMS i checkoutem.
@@ -140,4 +150,6 @@ export type ModulyConfig = {
 	commerce: CommerceConfig;
 	email: EmailConfig;
 	emailTheme: EmailThemeConfig;
+	/** Opcjonalne ścieżki API uploadu CMS (bez sekretów). */
+	storage?: StorageConfig;
 };

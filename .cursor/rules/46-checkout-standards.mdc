@@ -1,0 +1,197 @@
+---
+description: Checkout & Payment — twardy standard bezpieczeństwa, stabilności, compliance i flow dla Medusa v2. Ładuj zawsze przy pracy nad checkoutem lub bramką płatniczą.
+globs:
+  - "apps/*/app/**/checkout/**"
+  - "apps/*/components/checkout/**"
+  - "packages/commerce/**"
+  - "apps/backend/src/modules/**"
+  - "apps/backend/src/api/store/custom/**"
+  - "apps/backend/src/api/store/custom/*reconcile*/**"
+  - "apps/backend/src/jobs/reconcile-*"
+  - "apps/backend/src/subscribers/order-*"
+  - "apps/*/app/api/cron/**"
+---
+
+# Checkout & Payment Standards (Medusa v2)
+
+Twardy kontrakt dla checkoutu i bramek płatniczych. Wszystkie punkty są OBOWIĄZKOWE dla nowych projektów. Bazuje na production-grade implementacji w `Syntance/moduly` (`packages/commerce`, `apps/backend`) i audycie incydentów produkcyjnych (Lumine). Kod referencyjny — kopiuj stamtąd, nie wymyślaj od zera.
+
+Powiązane reguły: `payment-flow.mdc` (moduł providera), `checkout-forms.mdc` (formularz), `order-pipeline.mdc` (po zamówieniu), `56-legal.mdc` (prawo), `55-security.mdc` (CSP/SSRF).
+
+---
+
+## 0. Złota zasada
+
+Stan „opłacone" ustawia WYŁĄCZNIE webhook providera + pull `getPaymentStatus`/`transaction/verify`. Redirect z URL (`?status=success`) NIGDY nie wystarczy — można go sfałszować. Zamówienie powstaje tylko po realnym potwierdzeniu środków przez `completeCartWorkflow`.
+
+---
+
+## 1. Pięć torów domknięcia płatności (MUST)
+
+Każdy sklep MUSI mieć wszystkie pięć. Bramka to tylko implementacja kroków wewnątrz — flow jest stały.
+
+1. Return page (`/checkout/<provider>/return`) — po powrocie klienta: pull status z API providera → `completeCart`. Polling z backoffem (P24 webhook bywa opóźniony).
+2. Webhook (`getWebhookActionAndData` w module Medusa) — weryfikacja podpisu PRZED logiką → `transaction/verify` → aktualizacja sesji płatności. Nigdy nie woła `completeCart`.
+3. Reconcile scheduled job (`apps/backend/src/jobs/reconcile-<provider>-payments.ts`) — co 10 min domyka opłacone, niesfinalizowane koszyki. Działa tylko w `MEDUSA_WORKER_MODE` `shared`/`worker`.
+4. Reconcile HTTP endpoint + cron Vercel (`/store/custom/reconcile-<provider>` ← `/api/cron/reconcile-payments`) — siatka bezpieczeństwa NIEZALEŻNA od trybu workera. To jest kluczowe: na 1 instancji w trybie `server` scheduled jobs nie chodzą wcale.
+5. Idempotencja + fallback — reuse pending sesji (patrz §3), circuit breaker + przelew tradycyjny gdy bramka pada.
+
+```mermaid
+flowchart TD
+    A[Klient placi] --> B{Pending sesja z redirect_url}
+    B -->|tak| C[Reuse URL]
+    B -->|nie| D[Nowa sesja]
+    C --> E[Bramka]
+    D --> E
+    E --> F{Domkniecie koszyka}
+    F -->|return page| G[completeCart]
+    F -->|webhook + sig| G
+    F -->|cron Vercel| H[/store/custom/reconcile/]
+    H --> G
+    F -->|scheduled job| G
+    G --> I[order.placed -> mail idempotentny]
+```
+
+---
+
+## 2. Kontrakt adaptera bramki (dodanie nowej = te same kroki)
+
+Nowa bramka (PayU, Tpay, Stripe...) = realizacja TEGO SAMEGO kontraktu:
+
+- Moduł Medusa `apps/backend/src/modules/<provider>/` dziedziczący `AbstractPaymentProvider` (folder = nazwa providera, np. `przelewy24`, `tpay`, `stripe`).
+- `initiatePayment` → rejestracja transakcji → zwraca `data.redirect_url` (redirect) lub `client_secret` (Stripe Elements). Kwota TYLKO z `input.amount` (zweryfikowana przez workflow).
+- `authorizePayment` + `getPaymentStatus` — pull-based (`transaction/verify`), niezależne od webhooka.
+- `getWebhookActionAndData` — weryfikacja podpisu PRZED logiką, potem `verify`.
+- Provider id w jednym miejscu (`packages/commerce/src/payments/providers.ts`).
+- Storefront: strony `<provider>/return` + `<provider>/retry` (lub inline confirm dla Stripe).
+- Rejestracja w shared reconcile core (`run-<provider>-reconcile.ts`) + endpoint + cron.
+- Flaga ENV (`FEATURE_<PROVIDER>=1`) — bez flagi provider niezarejestrowany w `medusa-config.ts`.
+
+---
+
+## 3. Idempotencja sesji płatności (MUST — łapie duplikaty transakcji)
+
+`init<Provider>Redirect` MUSI najpierw szukać istniejącej sesji `pending` tego providera z gotowym `redirect_url` i ją reużyć, zamiast rejestrować nową transakcję.
+
+```typescript
+function findReusableRedirectUrl(cart: CartWithSessions, providerId: string): string | null {
+  const sessions = cart.payment_collection?.payment_sessions ?? [];
+  for (const s of sessions) {
+    if (s.provider_id !== providerId) continue;
+    if (s.status && s.status !== "pending") continue;
+    const url = s.data?.redirect_url;
+    if (typeof url === "string" && url.trim()) return url;
+  }
+  return null;
+}
+```
+
+Bug który łapie: klient odświeża stronę `/start` lub klika „Płać" wielokrotnie → bez tego każda próba rejestruje NOWĄ transakcję w panelu bramki (kilka porzuconych sesji zamiast jednej). Potwierdzony incydent produkcyjny.
+
+---
+
+## 4. Self-healing reconcile (MUST — łapie sieroty)
+
+Sierota = klient zapłacił, ale koszyk nie został domknięty (webhook zginął, klient zamknął przeglądarkę, return page padła).
+
+- Wspólny rdzeń `apps/backend/src/lib/run-<provider>-reconcile.ts` — zwraca `recoveredOrderIds`. Współdzielony przez scheduled job i HTTP endpoint.
+- Endpoint `POST /store/custom/reconcile-<provider>` — sekret `x-order-email-secret`, woła rdzeń, dla każdego odzyskanego zamówienia dispatchuje mail idempotentnie (w trybie `server` subscriber `order.placed` nie odpala).
+- Cron Vercel `GET /api/cron/reconcile-payments` (Bearer `CRON_SECRET`) → woła endpoint backendu z `x-order-email-secret` + `x-publishable-api-key`. Harmonogram w `vercel.json`, co 15 min.
+- `completeCartWorkflow` NIE tworzy zamówienia „na kredyt" — autoryzuje płatność (pull `transaction/verify`); tylko potwierdzona wpłata → zamówienie. Nieopłacone → `PAYMENT_AUTHORIZATION_ERROR` (po cichu pomijane).
+
+KRYTYCZNE: nie polegaj wyłącznie na scheduled jobie. Na jednej instancji Railway w `MEDUSA_WORKER_MODE=server` scheduled jobs NIE chodzą — endpoint + cron Vercel to jedyny działający tor. Domyślnie ustaw `MEDUSA_WORKER_MODE=shared`.
+
+---
+
+## 5. Security (MUST)
+
+- Rate limiting Upstash Redis na `/store/custom/*` (zwł. `prepare-checkout`, `cart/complete`). NIGDY in-memory (ginie przy restart/autoscale). Fail-open bez Upstash.
+- Webhook signature PRZED jakąkolwiek logiką (P24: `md5(sessionId|orderId|amount|currency|crc)`; Stripe: `constructEvent`). Niezgodny podpis → odrzuć.
+- Kwota płatności NIGDY z URL/body klienta — Medusa v2 `completeCartWorkflow` waliduje z bazy. Provider używa `input.amount`.
+- `AbortSignal.timeout(30_000)` na KAŻDY fetch do zewnętrznego API (P24, Tpay, Stripe, Turnstile, VIES, GUS, CAPI). Nigdy ręczny `setTimeout`.
+- XSS: sanityzacja order notes przed zapisem. NIE `isomorphic-dompurify` (ciągnie `jsdom` → SSR crash `ERR_REQUIRE_ESM` na Vercel/Next16/Turbopack). Użyj lekkiego `sanitize-order-notes.ts` (strip HTML regexem), backend re-sanityzuje.
+- CSP: `script-src` nonce + `strict-dynamic` (nigdy `unsafe-inline` dla skryptów); `style-src` może `unsafe-inline` (GSAP/Framer). `connect-src`/`frame-src` zawiera domeny bramek (P24, Tpay, Stripe, `challenges.cloudflare.com`).
+- Sekrety: `P24_CRC`, `STRIPE_SECRET_KEY` itp. tylko w Railway/Vercel secrets + `.env` w `.gitignore`. Nigdy `card_number`/`cvv`/`p24_token` w logach/Sentry.
+
+---
+
+## 6. CAPTCHA — Cloudflare Turnstile ZA FLAGĄ (decyzja Syntance)
+
+- Rate-limit per IP jest ZAWSZE aktywny (pierwsza linia anti-abuse).
+- Turnstile jest OPCJONALNY, gated `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. Domyślnie WYŁĄCZONY (konwersja). Włączasz przy realnym ataku/abuse.
+- Gdy włączony: widget w kroku 3 (przed submit, nie wcześniej). Backend `/store/custom/verify-turnstile` z `AbortSignal.timeout(10_000)`. Retry exponential backoff.
+- NIGDY reCAPTCHA (Google tracking, GDPR, cookies). Turnstile = zero-cookie, GDPR-safe.
+
+Uwaga: to nadpisuje starsze „nie dodawaj captchy" z `checkout-forms.mdc` — captcha jest dozwolona, ale domyślnie off.
+
+---
+
+## 7. Stability (MUST)
+
+- Double-submit: `useRef` (NIE `useState` — re-render za wolny) + `disabled` na przycisku. Guard na początku `handleSubmit`.
+- Circuit breaker per provider (localStorage, np. 3 błędy/5 min) → wyłącza bramkę → fallback na przelew tradycyjny. NIGDY nie blokuj całego checkoutu gdy jeden provider pada.
+- `completeCart` retry exponential backoff TYLKO na 409 (idempotency conflict zwraca cached state). 500 = zakleszczony workflow, retry nie pomaga.
+- Slow-state: po 3s submitu pokaż „Przetwarzamy zamówienie, nie zamykaj okna".
+- Webhook idempotency: Medusa v2 `processPaymentWorkflow` ma WBUDOWANĄ deduplikację per `payment_session_id`. NIE twórz własnej tabeli `webhook_events`. NIE twórz custom `/api/webhooks/*` — Medusa routuje `/hooks/payment/<provider_id>`.
+
+---
+
+## 8. Compliance PL/EU (MUST)
+
+- Zgody: osobne checkboxy regulamin + RODO, required, NIGDY pre-checked. Newsletter osobno, dobrowolny.
+- Cookie consent (accept/reject, nie cookie-wall) — pakiet `legal-consent`. PostHog opt-out przy reject.
+- Deklaracja dostępności (`/deklaracja-dostepnosci`) — EAA 2025 obowiązkowe dla B2C EU.
+- Instrukcja przelewu widoczna OD RAZU na potwierdzeniu (nie tylko mailem).
+- Omnibus, KSeF, prawo odstąpienia 14 dni — patrz `56-legal.mdc` i `order-pipeline.mdc`.
+
+---
+
+## 9. Flow / UX branżowy (MUST)
+
+- Guest checkout zawsze działa do końca. Konto opcjonalne.
+- Walidacja `onBlur` (nie `onChange`) z błędem inline. PL: kod `^\d{2}-\d{3}$`, telefon, NIP z checksum.
+- Trust badges w kroku 3 (tylko prawdziwe certyfikaty). Progress bar. Przycisk „Wróć" w każdym kroku > 1.
+- Koszty (dostawa) widoczne PRZED ostatnim krokiem.
+- Po sukcesie: guard na ponowny checkout tym samym koszykiem (back w przeglądarce).
+
+---
+
+## 10. Monitoring & alerty (MUST)
+
+- Sentry `beforeSend` scrubuje PII (email/phone/address/postal/ip). Test: brak PII w Raw Event JSON.
+- Alert: reconcile ODZYSKAŁ zamówienie (= płatność cicho zginęła, webhook/return nie zadziałał) — distinct event, nie ginie w szumie.
+- Alert: webhook signature fail (próba fałszerstwa lub błąd konfiguracji CRC).
+- PostHog funnel: `checkout_start → step(1..3) → purchase`. Drop-off > 70% w kroku 3 → zbadaj bramkę.
+
+---
+
+## 11. Testy (MUST przed merge)
+
+- `pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e` — checkout to critical path.
+- Playwright E2E: happy path przelew (pełne domknięcie) + P24/Tpay (do redirectu, plus wariant domykający w sandbox).
+- Unit: reuse sesji (idempotencja), klasyfikacja błędów reconcile.
+- Smoke prod (incognito): prepare-checkout, start→return→complete w sandbox, reconcile endpoint 200, mail po `order.placed`, reload `/start` nie tworzy duplikatu sesji.
+
+---
+
+## 12. Częste bugi i fixy (z produkcji)
+
+- „Płać" 2× → 2 płatności → `submittingRef` (§7).
+- Reload crashującego checkoutu → wiele transakcji P24 → fix SSR (§5, bez dompurify) + reuse sesji (§3).
+- Webhook zginął → order `pending` na wieczność → reconcile job + endpoint + cron (§4).
+- `MEDUSA_WORKER_MODE=server` na 1 instancji → scheduled jobs (reconcile/warmup) i subscriber `order.placed` NIE działają → sieroty + brak maili. Fix: `shared` + reconcile przez cron Vercel + dispatch maili z endpointu reconcile.
+- Fake webhook `?status=success` → signature check blokuje (§5).
+- Provider timeout wisi 5 min → `AbortSignal.timeout(30s)` (§5).
+- Order notes z `<script>` → `sanitize-order-notes` (§5).
+
+---
+
+## 13. Deployment checklist
+
+- [ ] `typecheck + lint + test + test:e2e` zielone
+- [ ] ENV: `<PROVIDER>_*`, `UPSTASH_REDIS_*`, `CRON_SECRET`, `ORDER_EMAIL_INTERNAL_SECRET` (ten sam na backendzie i storefroncie), `MEDUSA_WORKER_MODE=shared`, opcjonalnie `NEXT_PUBLIC_TURNSTILE_*`
+- [ ] Webhook URL w panelu providera: `https://<backend>/hooks/payment/<provider_id>`
+- [ ] CSP w `next.config` zawiera domeny bramek + Turnstile
+- [ ] Cron Vercel `reconcile-payments` aktywny (co 15 min) + scheduled job co 10 min
+- [ ] Sentry `beforeSend` scrub PII + alerty (reconcile-recovered, webhook-sig-fail)
+- [ ] Smoke: 1× płatność sandbox → webhook → order `captured`; reload `/start` = 1 transakcja

@@ -114,6 +114,11 @@ export type AdminOrderDetail = {
 	items: OrderLineItem[];
 	itemTotal: number;
 	shippingTotal: number;
+	/**
+	 * Część rabatu przypadająca na dostawę (adjustmenty promocji na metodach
+	 * kuriera) — UI pokazuje „Dostawa: gratis" zamiast wiersza rabatu.
+	 */
+	shippingDiscount: number;
 	taxTotal: number;
 	discountTotal: number;
 	total: number;

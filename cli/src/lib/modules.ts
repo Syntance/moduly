@@ -1,12 +1,41 @@
 import { cp, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** Katalog główny monorepo moduly (apps/, packages/, cli/). */
+/**
+ * Katalog główny monorepo moduly (apps/, packages/, cli/).
+ *
+ * Wspinamy się od __dirname do katalogu z markerami monorepo — stała liczba
+ * `..` była błędna zależnie od tego, czy kod leci z src/ (tsx) czy dist/
+ * (zbudowane CLI): `create` z dist szukał apps/ w cli/ i zawsze padał.
+ */
 export function resolveModulyRoot(): string {
-	return path.resolve(__dirname, "..", "..");
+	let dir = __dirname;
+	for (let i = 0; i < 6; i++) {
+		const hasMarkers =
+			existsSyncSafe(path.join(dir, "apps")) &&
+			existsSyncSafe(path.join(dir, "packages")) &&
+			existsSyncSafe(path.join(dir, "pnpm-workspace.yaml"));
+		if (hasMarkers) return dir;
+		const parent = path.dirname(dir);
+		if (parent === dir) break;
+		dir = parent;
+	}
+	throw new Error(
+		"Nie znaleziono katalogu monorepo moduly (markery: apps/, packages/, pnpm-workspace.yaml). Uruchamiaj CLI z klonu Syntance/moduly.",
+	);
+}
+
+function existsSyncSafe(p: string): boolean {
+	try {
+		statSync(p);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 export async function pathExists(target: string): Promise<boolean> {
@@ -18,6 +47,25 @@ export async function pathExists(target: string): Promise<boolean> {
 	}
 }
 
+/** Katalogi artefaktów — nigdy nie trafiają do projektu klienta. */
+const SKIP_DIRS = new Set([
+	"node_modules",
+	".next",
+	".turbo",
+	".medusa",
+	"dist",
+	"coverage",
+	".git",
+]);
+
+/**
+ * Sekrety — nigdy nie kopiujemy realnych .env z monorepo do projektu
+ * klienta (zostają wyłącznie .env.example).
+ */
+function isSecretFile(name: string): boolean {
+	return name.startsWith(".env") && !name.endsWith(".example");
+}
+
 export async function copyDirectory(src: string, dest: string): Promise<void> {
 	await mkdir(dest, { recursive: true });
 	const entries = await readdir(src, { withFileTypes: true });
@@ -26,13 +74,14 @@ export async function copyDirectory(src: string, dest: string): Promise<void> {
 		const srcPath = path.join(src, entry.name);
 		const destPath = path.join(dest, entry.name);
 
-		if (entry.name === "node_modules" || entry.name === ".next" || entry.name === ".turbo") {
+		if (SKIP_DIRS.has(entry.name)) {
 			continue;
 		}
 
 		if (entry.isDirectory()) {
 			await copyDirectory(srcPath, destPath);
 		} else if (entry.isFile()) {
+			if (isSecretFile(entry.name)) continue;
 			await cp(srcPath, destPath);
 		}
 	}

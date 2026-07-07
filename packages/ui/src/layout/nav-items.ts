@@ -1,4 +1,5 @@
 import {
+	BadgePercent,
 	BarChart3,
 	FileText,
 	LayoutGrid,
@@ -20,6 +21,11 @@ const MODULE_NAV: Record<
 	orders: { segment: "zamowienia", label: "Zamówienia", icon: ShoppingBag },
 	products: { segment: "produkty", label: "Produkty", icon: Package },
 	categories: { segment: "kategorie", label: "Kategorie", icon: Tags },
+	promotions: {
+		segment: "kody-promocyjne",
+		label: "Kody promocyjne",
+		icon: BadgePercent,
+	},
 	content: { segment: "cms", label: "CMS", icon: FileText },
 	emails: { segment: "maile", label: "E-maile", icon: Mail },
 	forms: { segment: "formularze", label: "Formularze", icon: MessageSquare },
@@ -32,6 +38,7 @@ const ORDER: Array<keyof Omit<ModulesToggle, "statistics">> = [
 	"returns",
 	"products",
 	"categories",
+	"promotions",
 	"content",
 	"emails",
 	"forms",

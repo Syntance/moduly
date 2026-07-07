@@ -23,7 +23,11 @@ export default defineConfig({
     },
     {
       name: "starter-sklep",
-      testMatch: ["**/smoke-sklep.spec.ts", "**/a11y-baseline.spec.ts"],
+      testMatch: [
+        "**/smoke-sklep.spec.ts",
+        "**/checkout.spec.ts",
+        "**/a11y-baseline.spec.ts",
+      ],
       use: {
         ...devices["Desktop Chrome"],
         baseURL: `http://localhost:${SKLEP_PORT}`,

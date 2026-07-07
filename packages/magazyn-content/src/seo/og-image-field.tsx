@@ -4,9 +4,43 @@ import { ImagePlus, Loader2, X } from "lucide-react";
 import Image from "next/image";
 import { useCallback, useId, useState } from "react";
 import { isCmsImageUnoptimized, resolveCmsAdminPreviewUrl } from "@moduly/magazyn-core/client";
+import {
+	canCompressCmsImage,
+	prepareCmsImageForUpload,
+} from "@moduly/magazyn-core/storage/compress-cms-image";
+import {
+	CMS_IMAGE_MAX_LONG_EDGE,
+	VERCEL_SAFE_UPLOAD_MB,
+} from "@moduly/magazyn-core/storage/cms-image-config";
 import { uploadImagesAction } from "../content-actions";
 import { cn } from "@moduly/ui";
 import { isImageFile, useFileDropZone } from "@moduly/magazyn-core/hooks/use-file-drop-zone";
+
+const HEIC_TYPES = new Set(["image/heic", "image/heif", "image/heic-sequence"]);
+
+function isHeicFile(file: File): boolean {
+	const type = file.type.toLowerCase();
+	if (HEIC_TYPES.has(type)) return true;
+	const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+	return ext === "heic" || ext === "heif";
+}
+
+async function prepareFilesForUpload(files: File[]): Promise<File[]> {
+	const prepared: File[] = [];
+	for (const file of files) {
+		if (isHeicFile(file)) {
+			throw new Error(
+				"HEIC z iPhone wymaga konwersji — wyeksportuj zdjęcie jako JPG w Galerii lub ustawieniach aparatu.",
+			);
+		}
+		if (!canCompressCmsImage(file)) {
+			prepared.push(file);
+			continue;
+		}
+		prepared.push(await prepareCmsImageForUpload(file));
+	}
+	return prepared;
+}
 
 type Props = {
 	label: string;
@@ -42,8 +76,9 @@ export function OgImageField({
 			setUploading(true);
 			setError(null);
 			try {
+				const prepared = await prepareFilesForUpload(toUpload);
 				const formData = new FormData();
-				for (const file of toUpload) formData.append("files", file);
+				for (const file of prepared) formData.append("files", file);
 				const result = await uploadImagesAction(formData);
 				if (result.error) {
 					setError(result.error);
@@ -57,8 +92,12 @@ export function OgImageField({
 					const url = result.urls[0];
 					if (url) onChange(url);
 				}
-			} catch {
-				setError("Upload nie powiódł się. Spróbuj ponownie lub mniejsze pliki.");
+			} catch (error) {
+				setError(
+					error instanceof Error
+						? error.message
+						: "Upload nie powiódł się. Spróbuj ponownie lub mniejsze pliki.",
+				);
 			} finally {
 				setUploading(false);
 			}
@@ -143,8 +182,8 @@ export function OgImageField({
 			<p className="text-xs text-muted-foreground">
 				{description ??
 					(batchMode
-						? "Możesz dodać wiele zdjęć naraz — przeciągnij na pole lub wybierz z dysku (WebP, JPG, PNG)."
-						: "Przeciągnij zdjęcie na pole lub wybierz plik. Zapisz formularz, potem Redeploy u góry panelu (~2–3 min na prod).")}
+						? `JPG/PNG konwertowane na WebP (max ${CMS_IMAGE_MAX_LONG_EDGE}px, do ~${VERCEL_SAFE_UPLOAD_MB} MB przed wysłaniem). Możesz dodać wiele zdjęć naraz — przeciągnij lub wybierz z dysku.`
+						: `JPG/PNG konwertowane na WebP (max ${CMS_IMAGE_MAX_LONG_EDGE}px). Pliki > ${VERCEL_SAFE_UPLOAD_MB} MB są kompresowane przed uploadem (limit serwera). Zapisz formularz, potem Redeploy u góry panelu (~2–3 min na prod).`)}
 			</p>
 		</div>
 	);

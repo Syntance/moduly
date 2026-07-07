@@ -26,6 +26,17 @@ const PAYMENT: Record<OrderPaymentStatus, StatusBadge> = {
 	requires_action: { label: "Wymaga działania", tone: "warning" },
 };
 
+/** Statusy „aktywne" magazynowo — do statystyk sprzedaży (parytet z produkcją). */
+const MAGAZYN_ACTIVE_ORDER_STATUSES: ReadonlySet<OrderStatus> = new Set([
+	"pending",
+	"completed",
+	"requires_action",
+]);
+
+export function isMagazynActiveOrder(status: OrderStatus | string): boolean {
+	return MAGAZYN_ACTIVE_ORDER_STATUSES.has(status as OrderStatus);
+}
+
 const FULFILLMENT: Record<OrderFulfillmentStatus, StatusBadge> = {
 	not_fulfilled: { label: "Oczekuje na akceptację", tone: "warning" },
 	partially_fulfilled: { label: "Częśc. w realizacji", tone: "info" },

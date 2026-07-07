@@ -131,9 +131,8 @@ export async function uploadImagesAction(formData: FormData): Promise<UploadStat
 
 	try {
 		await requireAdminSession();
-		const { adminUpload, resolveMedusaMediaUrls, uploadCmsAssetFile } = await import(
-			"@moduly/magazyn-core"
-		);
+		const { adminUpload, resolveMedusaMediaUrls, uploadCmsAssetFile, prepareCmsUploadFile } =
+			await import("@moduly/magazyn-core");
 		const urls: string[] = [];
 		for (const file of files) {
 			try {
@@ -141,7 +140,8 @@ export async function uploadImagesAction(formData: FormData): Promise<UploadStat
 				urls.push(result.url);
 			} catch (inner) {
 				if (inner instanceof Error && inner.message === "MEDUSA_UPLOAD_UNAVAILABLE") {
-					const fallback = resolveMedusaMediaUrls(await adminUpload([file]));
+					const prepared = await prepareCmsUploadFile(file);
+					const fallback = resolveMedusaMediaUrls(await adminUpload([prepared]));
 					if (fallback[0]) urls.push(fallback[0]);
 					continue;
 				}

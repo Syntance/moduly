@@ -2,11 +2,14 @@
 
 import type { ComponentType, ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import DOMPurify from "isomorphic-dompurify";
 import type { Address } from "@moduly/types";
 import { useAnalytics } from "@moduly/analytics";
 import { PaymentSelector } from "./PaymentSelector";
+import { TurnstileWidget } from "./TurnstileWidget";
 import { isP24CircuitOpen, recordP24Failure } from "../../checkout/p24-circuit-breaker";
+import { sanitizeOrderNotes } from "../../checkout/sanitize-order-notes";
+import { isTurnstileEnabled, verifyTurnstileToken } from "../../checkout/turnstile";
+import { resolveMedusaFetchBase } from "../../medusa/resolve-fetch-base";
 import { CART_ID_STORAGE_KEY } from "../../medusa/cart-bootstrap";
 import { getPolishRegionId } from "../../medusa/region";
 import {
@@ -247,6 +250,10 @@ export function CheckoutForm({
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const [submitSlow, setSubmitSlow] = useState(false);
 	const submitSlowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const turnstileEnabled = isTurnstileEnabled();
+	const [turnstileToken, setTurnstileToken] = useState("");
+	const turnstileTokenRef = useRef("");
+	turnstileTokenRef.current = turnstileToken;
 	const staleResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const beginCheckoutFiredRef = useRef(false);
 	const checkoutStartTimeRef = useRef<number | null>(null);
@@ -500,6 +507,7 @@ export function CheckoutForm({
 		!!cartId &&
 		items.length > 0 &&
 		formData.shippingOptionId !== "" &&
+		(!turnstileEnabled || turnstileToken !== "") &&
 		!submitting &&
 		!submittingRef.current;
 
@@ -526,12 +534,19 @@ export function CheckoutForm({
 		try {
 			await assertCartReadyForCheckout(cartId);
 
-			const sanitizedNotes = payment.orderNotes
-				? DOMPurify.sanitize(payment.orderNotes, {
-						ALLOWED_TAGS: [],
-						ALLOWED_ATTR: [],
-					})
-				: "";
+			if (isTurnstileEnabled()) {
+				const ok = await verifyTurnstileToken(
+					turnstileTokenRef.current,
+					resolveMedusaFetchBase,
+				);
+				if (!ok) {
+					throw new Error(
+						"Weryfikacja zabezpieczająca nie powiodła się. Odśwież stronę i spróbuj ponownie.",
+					);
+				}
+			}
+
+			const sanitizedNotes = sanitizeOrderNotes(payment.orderNotes);
 
 			if (payment.paymentProviderId === PRZELEWY24_PROVIDER_ID) {
 				await prepareCheckout(
@@ -1004,6 +1019,12 @@ export function CheckoutForm({
 							supportEmail={supportEmail}
 						/>
 						{trustBadges}
+						{turnstileEnabled && (
+							<TurnstileWidget
+								onToken={setTurnstileToken}
+								className="flex justify-center"
+							/>
+						)}
 						{submitError && (
 							<div
 								role="alert"

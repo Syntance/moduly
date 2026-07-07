@@ -8,7 +8,13 @@
     "./config": "./src/configure.ts",
     "./hooks/use-file-drop-zone": "./src/hooks/use-file-drop-zone.ts",
     "./hooks/use-prevent-window-file-drop": "./src/hooks/use-prevent-window-file-drop.ts",
-    "./client": "./src/client.ts"
+    "./client": "./src/client.ts",
+    "./medusa/media-url": "./src/medusa/media-url.ts",
+    "./api/cms-upload": "./src/api/cms-upload/route.ts",
+    "./api/cms-upload/presign": "./src/api/cms-upload/presign/route.ts",
+    "./storage/normalize-cms-image": "./src/storage/normalize-cms-image.ts",
+    "./storage/cms-image-config": "./src/storage/cms-image-config.ts",
+    "./lib/format": "./src/lib/format.ts"
   },
   "scripts": {
     "lint": "eslint src",
@@ -17,12 +23,13 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.940.0",
+    "@aws-sdk/s3-request-presigner": "^3.940.0",
     "@moduly/auth-core": "workspace:*",
-    "@moduly/config": "workspace:*",
     "@moduly/config": "workspace:*",
     "@moduly/types": "workspace:*",
     "@moduly/ui": "workspace:*",
     "server-only": "^0.0.1",
+    "sharp": "^0.34.5",
     "zod": "^3.25.76"
   },
   "peerDependencies": {

@@ -8,22 +8,24 @@ export type ModulesToggle = {
 	settings: boolean;
 	content: boolean;
 	forms?: boolean;
+	/** Kody promocyjne (rabaty + darmowa dostawa z regułą wykluczenia dopłaty express). */
+	promotions?: boolean;
 	returns?: boolean;
-	/** Domyślnie true — osobna strona analityki pod Przeglądem. */
+	/** DomyĹ›lnie true â€” osobna strona analityki pod PrzeglÄ…dem. */
 	statistics?: boolean;
 };
 
 export type PanelBranding = {
-	/** Nazwa marki — nagłówek panelu. */
+	/** Nazwa marki â€” nagĹ‚Ăłwek panelu. */
 	name: string;
-	/** Podtytuł panelu (np. „Magazyn", „Panel"). */
+	/** PodtytuĹ‚ panelu (np. â€žMagazyn", â€žPanel"). */
 	panelTitle: string;
-	/** Adres publicznego sklepu (link „Otwórz sklep"). */
+	/** Adres publicznego sklepu (link â€žOtwĂłrz sklep"). */
 	storefrontUrl: string;
 };
 
 export type PanelConfig = {
-	/** Bazowa ścieżka panelu, np. „/magazyn", „/panel". */
+	/** Bazowa Ĺ›cieĹĽka panelu, np. â€ž/magazyn", â€ž/panel". */
 	basePath: string;
 	branding: PanelBranding;
 	modules: ModulesToggle;
